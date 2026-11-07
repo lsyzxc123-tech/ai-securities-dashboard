@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0c111d">
+<title>AI 증권사 대시보드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#0c111d; --panel:#131a2a; --panel2:#182137; --line:#232d46;
+  --text:#e7ebf5; --muted:#8c96ae; --faint:#5f6985; --accent:#88aaff;
+  --up:#4fd18b; --down:#ff6b6b; --warn:#f3c04f;
+  --c-earnings-ai:#6f8cff; --c-chart-ai:#b6c0d8; --c-swing-lab:#f0b35a; --c-analyst-desk:#52c7a3;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans CJK KR",system-ui,sans-serif;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 48px}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .warn{color:var(--warn)} .muted{color:var(--muted)} .faint{color:var(--faint)}
+a{color:var(--accent)}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* 잠금 화면 */
+.gate{min-height:100vh;display:grid;place-items:center;padding:24px}
+.gate form{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}
+.gate h1{font-size:22px;margin:0 0 6px;font-weight:700}
+.gate p{margin:0 0 20px;color:var(--muted);font-size:14px}
+.gate input[type=password]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px}
+.gate label{display:flex;gap:8px;align-items:center;margin:12px 0 18px;color:var(--muted);font-size:14px}
+.gate .btn{width:100%;padding:12px;border-radius:10px;border:0;background:var(--accent);color:#0c111d;font-weight:700;cursor:pointer}
+.gate .err{color:var(--down);font-size:14px;min-height:20px;margin-top:10px}
+
+/* 머리 */
+header.top{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;margin-bottom:18px;flex-wrap:wrap}
+header.top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+header.top .meta{color:var(--muted);font-size:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
+.refresh{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:13px}
+.refresh:disabled{opacity:.5;cursor:default}
+.status{font-size:13px;color:var(--muted);margin:-8px 0 14px;min-height:0}
+.status:empty{display:none}.status.err{color:var(--down)}.status.ok{color:var(--up)}
+
+/* 히어로 */
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 22px 18px;margin-bottom:16px}
+.hero .row{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.hero .label{color:var(--muted);font-size:14px}
+.hero .big{font-size:46px;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin:4px 0 4px}
+.hero .sub{color:var(--muted);font-size:13px}
+.hero .absret{font-size:14px;margin-top:8px}
+.hero .absret b{font-weight:650;margin-right:10px}
+.hero .side{display:grid;gap:10px;min-width:240px}
+.hero .side div{display:flex;justify-content:space-between;gap:18px;font-size:14px}
+.hero .side b{font-weight:600}
+.trust{margin-top:18px}
+.trust .cap{font-size:13px;color:var(--muted);margin-bottom:8px}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--panel2);gap:2px}
+.bar span{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:13px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+
+/* 패널 */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.panel h2{font-size:15px;font-weight:650;color:var(--accent);margin:0 0 12px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.panel h2 small{color:var(--muted);font-weight:400;font-size:13px}
+.grid3{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.grid3 .panel{margin:0}
+.grid-field{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid3>*,.grid-field>*{min-width:0}
+.inner{background:var(--panel2);border-radius:10px;padding:12px 14px}
+.inner + .inner{margin-top:10px}
+.inner h3{font-size:14px;margin:0 0 6px;font-weight:650}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+
+/* 표 */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{color:var(--faint);font-weight:500;font-size:12.5px;text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+tr:last-child td{border-bottom:0}
+td .name{font-weight:600}
+td .desc{display:block;color:var(--muted);font-size:12.5px;white-space:normal;max-width:280px}
+.chip{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--panel2);color:var(--muted);margin-left:6px}
+.chip.inc{color:var(--up);background:rgba(79,209,139,.1)}
+.chip.sh{color:var(--warn);background:rgba(243,192,79,.1)}
+.chip.ret{color:var(--faint)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+
+/* 목록 */
+ul.memo{margin:0;padding-left:18px}
+ul.memo li{margin:4px 0;font-size:14px}
+.ev{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:0}
+.dday{flex:0 0 auto;min-width:54px;text-align:center;font-size:13px;font-weight:700;padding:3px 0;border-radius:8px;background:rgba(136,170,255,.12);color:var(--accent);font-variant-numeric:tabular-nums}
+.dday.soon{background:rgba(243,192,79,.14);color:var(--warn)}
+.ev b{display:block;font-size:14px;font-weight:600}
+.ev span{font-size:13px;color:var(--muted)}
+.pick{display:grid;grid-template-columns:72px 64px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.pick:last-child{border-bottom:0}
+.pick .t{font-weight:700}
+.pick .r{font-size:13.5px;color:var(--muted)}
+.quota{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin:6px 0 2px}
+.quota span{display:block;height:100%;background:var(--accent)}
+details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:4px}
+footer{color:var(--faint);font-size:12.5px;margin-top:24px;line-height:1.7}
+.gstat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.gstat .inner b{display:block;font-size:18px;font-weight:700;margin-top:2px}
+.gstat .inner .lbl{font-size:12.5px;color:var(--muted)}
+.gstat .inner .sub2{font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px 8px;margin:4px 0 0;padding:0;list-style:none}
+.chips li{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px}
+.halt{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.35);color:var(--down);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+.okbadge{color:var(--up)} .nobadge{color:var(--down)}
+.spark{width:100%;height:46px;display:block;margin-top:6px}
+.why{white-space:normal;font-size:13px;color:var(--muted);text-align:left;max-width:360px;min-width:190px}
+@media (max-width:900px){.gstat{grid-template-columns:repeat(2,1fr)}}
+
+@media (max-width:900px){
+  .grid3,.grid-field{grid-template-columns:1fr !important}
+}
+@media (max-width:560px){
+  .wrap{padding:14px 12px 40px}
+  .hero{padding:18px 16px 16px}
+  .hero .big{font-size:36px}
+  .hero .side{min-width:0;width:100%}
+  .panel{padding:16px 14px}
+  .pick{grid-template-columns:60px 52px 1fr}
+  td .desc.dd{display:none}
+}
+@media (prefers-reduced-motion:no-preference){
+  .bar span{transition:flex-basis .6s ease}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+let PAYLOAD = {"v": 1, "salt": "f9jFD5LXbB14hzSldsLJYg==", "iv": "7JNYVdLCpDr7KESy", "it": 310000, "ct": "29sC950wzz9glAY1rhBHfZ6kaHiWLMSehzn+mrvpNb8rzhpFrRkYXnckyYgGAj5ozkF1ct4JUC8tMnAS8dO9gtO1EoaYHkGtKEVEhK++9cDUOTS6wleFY8A302TfW+uNTcpKxAwrconirVNQbDW6SWjapa2ayeP5MGw7YmqZJ4j3xkgPTjM7EARu4eA2FbFEIr0udbOzha6ipLN1jIb1zopdjFDpf/80kR/KZ5K/EZzMpzkaNPw1lBMJUVA92gsW1gDn8Y3PXRiP6SFkBlPKGudULE79IkMaQ+UyjbVYGwkQMzCak5eksZEqFOY/NQou0o7mChmRMpYAaOzIRFzyA9Yv2jkTcEGEjYfQcakEMoSFonEAvBZonW92NQ41oKjsWLm4PI1cv0CSanx5muH0EovE/h17UY3+of2vtBe+bJljzaC8nMAo8o+ZTo2xQ4risoo77hzeUjRd2+0g2PsLkgBeNR2jyz9Hp9WkIvjiLrUst/0saqNKc3Aja3l9pPIMHtnkYeGA06AJlfPIWE7g/4+QtKJELu5AAON2IGvcBDJtLpHVtPoEkw0Z78nTZ+CSJEz42F6k0zKLNnE15C6VmWKIDJ9uhbJfnmSs5MhwrYNFu44ahxrAGDYdCNj3t3M7sLJ+sOYGn9ij/hjy2sTXq2feYYH8Nh/gVs1cc/TFbaM77WiRehIncoAeCM213nt+BB5kdoFsL26xdC7zTyLlN81quKc9Ld4RG0nFMJH9vPl1TxEyHmqtCgNSK25pqTWMw+fRVY2io0e3Vjg1bEOTItquuC4PQBbG2Ke4/wfbUhosDHW5XGrOehq181JdnrWqNq5xkNgxq1gcsvD/W6s237mIkjKdwR3Lxaxy2tTBLY6B+out3yb54B92k1trSYidjT//EbskJStp+7Vavly5jKRL8+V+Le7bSdf9Cbje6L11ryiBpWacz2UAQP1us+jjpKJzFDsIyh19zMdEkXU8eJzLkXczzB9ebLzJl4AuCpxDIAdrlJKHwnOyJuO5svmZG+3pS9W8QDbT1Z5cxSC4goJTdDnPWV/F0KzcZ/pXsZbsfxpxEehHSTt5T90C/svMh+/3WahYcgNUzp02fqxCKr+l7MZqpTbneclVKGpJaVmVoiiGE41QCYvHm585cV+Q9G7wFec31zl6Od4MYJJSi1WNtwcOKP6JLg8lmiB5HJwfLnQn0MIoG4USE5GSVS+vw8Wh7ITLsmOncWJ8AHlayByl9DA1Zr7J7sPq3+wHRY+mgjxULVjcsUZNWkI5sdVXe1qydkwG33sXyPcwxnD1O3MD/6RgHgUXWknUhrCKhzm9zOHiL4nB+IIGcsgdsY9K65CUdQ/G9ViFqYrJw1Dxcpkga0HsmttOQ4/3J6dvmeqVlg7B0Q3Uo8QKnZ1dMZVzAs5c65Jn+RwoSYZTqsgpf8LpiE8uGuzCzfOlGu6T7b1AMJPzJcuyLzLAlGNoN+0O+/YLDgariM84JYzcL3TL7RpCSeLxvfLsz6/TlnWroByHo+6idHn1cIKld4DnsECeSvXxvrjYE96xTuCHLzVQB5ndM4XHGVEFwpfTY0tvKNYd8vJLREnrqL/8q7jJDCs54lWezx+81kOCvAtgQB5ZMEzbUjyRgS9U2n2ow+swxKTCEh8AwD/Due/9nC8BIJaLnwdxSCZvhgAePXs4eqUaxleSmGP6+NGc0czCJv4EAIRl3CL4CNZUDfLVlHwnu6a48yOVSlqzzDbqAM4fTFzBwxVSu0GT6MogcL02C2roUvrwwNI6rldV6kanAZ/3TIW+upItJPy/nlkTL3BMwlY4WcAlKBueJ/qzoNErGpVGhBW5T+JdKt/mloWZxujP2wSoC5B22lfBdhXBpEZUUoInyfSjC/bae3EdX9qqgdUvUUbUQ3XNjCHNs/ra1dh8Kcq7nYyKD4k0nDKdi9Hg7dJSOoQy4Boit8tzUZEWyfyifYb8C7fmWlT1EosR2oq8kxlEItizqIpPv9rNCRffG+cIqwDSe5094EYRUnRnd6g2uKNmKOsZPCO1G51pY21aY0Z4pN+F0Q7KWTmzp57Sl16bi4/iL3lprGNKKH/5V7P4851aA0Z6YtF/7iH7qZqTwGX5MBxYoKapNziNu2V1AI7D6KE2rM5fCnVF/GuzjtfmpdLFrOdoI81BXHvby1BZQIBefjKqLcKEG9AQzXHw6GbkJ9ThGMBRKCkA+PxRAHCnmQ9Vy5uNgqfi47MVI2sGM9oTSCVRCBB2tisw/drXfBO9rBG7gw2qNLX/ub/lANsvy/QtBJ/M45u3tt+Z8l8QQZEBzFVu6TIsd0XFd86jcoL4UEI3bXIQoWTLaDqA/DHr1mBMfitG65C3KKeEZO6hbdrnTUAlZ0i210BIXYuq9QuSABuw3YZngHu6TjGsOBKhQWINqGiC5fLDIRbhgQYNfgxZLrbXILDWbsBItkSoBiXa4KMexwzOCuJUuvvTxEvUx+kA0Vqlsz7tPpbXD9dJ0ok81nrcVXBXA6fxf1HGq28ej+8rzBx8UGq+4Aj9eKLnljgEh4xFExi+wfds93olmOyUExrZAiemUkWhishcxHOUGVnIDGP+K4jogis2XQqMEMVe16BmNTD0D/4CjL+rXeOmRQLSNRr7Stu4ecRPUHWxaZxa+NC8sgGfmgLe0FCHhiOguX4vOWK/LXMbWdna9lKHbq0q0rfTWGXP9iTb4Zw6kmloJqtO7HYnAximFPJvWmX09lqGioBR0hTH0CuEH5RTiwGqukZtDeKuploWiRByfy/1wZMVVwUH0b0bzP4XF5dQQbZc+7zYu0xbksgMBl+ppeprr2fLrMXz/B74FXVWEruIjS8rpkqEcP0jb1oywUoDaAbrCGO4WWFTa2uB873ES+FpSja/4WOD7/KUYsRkGsbHOrWGcgEwOP2YYxS6jONBPJ1ZYKl5W4o/hn2ttCxaZy2WpuqtJpok3TuCHIRkVlx+EEtF/ik4vNAsM/wulNgXcQpXTQQ7xCpgtWF0opXNhcBfRCmCas8QWJqwM6jvuWEIqog1CweTPrdzjGKafLDp11Cwjo3nr8fSD9NomsWsHMTAIizOxaSHiJ/hrZx7CIw9nc4dnJPajFtWKHnjBnFTsTlt+emVtGx0579jMOPt8aPrYJmjU02NjcKNmITOT4gS25urrNKawoLLYRLWyRAjrYY9uRhAtIqpxlp+fL5y1QL2xyP2u3hx/dzfvZiQO+uXcn7gJ4SApsYYqQcfQDGs1KsIV6zD+zWOCinJAlJQTrUmcEOYLi5/hJMqAoPFKoSyqjuH35nuqr2Gc4lchzagOZCHdUe9JYOdEfgM4Ezqkpn9wUzM1w9SzwkYDfaGQsudqUMOWzKEqYX+ZMYS/SGawFLQSr/keaY0v/SOQYP9Ayj3+9plvF9pJq13gSAoDxYzEz8suGc3aKVNqaU78RIY1yYqz+bn/gYU4ms2UyBXshbzyKf0qZTIRsmyCJol/uShzsM6XFQmWZcTdQB+A9XVLg49gV/7Oks168dEK+cB6vWIuzD6TpSEzGtWBy1OxE4qUQMWgF5Rceuuc+HMfM1f7e4C+Rrh1WlMORtWH/gv2ZQhlxxoNST8a7Yc/YXJnPiGefPDGtvC/YyjuMLDlDatkqmu7a7sIBMk/d6IzwenJ8dQocP7bK0MY1KPYhTW5cbnDqG75BBiwXAwiHcOjWe7rs7C+938ImQSwzzPLjcO1tW+cvwrituti9nYhupGNLsW1TWMkZr+kM07Wyi3m3KiPUBhagOTy/lJfvE8sfkUwhnQ1wvmh8kVE9lkIgHKkp4FW8b/+xLRomJsBdDPy9qInVUFRTIC+kmnOX2q5cGumVu5+0Fbc3/F7wKnsJyOO4SSu2LBrycKrsXH8JQUJZlxn+T1A0uPTJ2/WcZHoLyQ6aIYvQuhtgVzlmWtCqxg58XP3AKeqwxMqiKMIooPVbJQDG0FahhKVXDpQxcQWVJ6qNIp80Dsvp4xmJWeXTph5fdfSSC+BqHNfo6jKf6NiAdUcbrPN9WMht6l9RjOTsLwZyRkyy0Glrr2deDPDzBHH866m/Dfd9rPuFcbqqO0xkE8YPqvhcItZ2LiK6IFS79yOz82iHrYWWcJR1c8NFbVZjj6w4UcTk6n0OWxeWsr+K3R5D5XUE3n9ry/NDeAZTVaV2C2BXtCfGkVOy++P/CS8cIb8jbiWuSy7PPSek0lECJZGrBB4ZhEoc029HuS7jHGJtoTBABGEGZBnBUIcU9IWTO7wDSyBKlOsUdHxVOtPMhuO3rFx/PVGRX200yfC7fq93ybrqvd6De5k/QGI2QE0Q6cs8Aya6ly4zKXP5WutkE6BTTS2ZvtjsuOPbKjGV2KaQ5e4cFH++hJd/GFHhX8m7qSUaRuR6gNVi3Z+Ce5n16Qq7sWZn7kIGSJ1nd3++i1dAm1eQwIjoundmbr0sOrodPP3/kUSF9BKW2fQxP4QyslZMmMqgzQBcgcwHfzZB/DIUGx8mgvFQi6oXhBJ6d2k9LgUibFikSC9Ia+C05jQvaOMqcVXiqfJo/H3DalazFRvtlxndWy3nJgq+RqgsuwLiphL39CyzSVoQciI5+RQhz8yVYBjdg4ovTNpIifYXP1HkvU3x0gt/EqO5GS3195/n0ge2/OJyEZwwVGpH32VXFhMwb3oZHt1FiiAVMJhp37zRi3vmTMtctL+clvn9wO81ZyHuXycTHpgZd2xsk8aEr8p54ymr+D+SVGFVGlq+YbjUzSnyaKmiXPR7nqD1jm9XlMWQnk4RMuu6vFpAqlVAU2m5d1mCCLhT+S2h0k5uPIK0UPuAAzFSa35gYARIviEjNmsRreAOvSHjVADoDxrUFmAeStotRkQBMy3obO2JAY8k91ZPkPikIyEBXZ11+UAzKU3w0Z2ezDn/AjgIB/Rlhz/KXmDlXv7ITqcRZgVizD/IZPc14InZrIWlQhdSjTE56h+i+pqfxNGYgF70tM+qMkLDh21hBRFNUB4qhZFxjiG0hYIBH0LEyEa7YFuPxUm+VHSGtKkuSUeHXoeZlLKe29HlgnGjdfWWYrxvMbHIr98hz1h5LYVFBci1O61wCN8AhCl5UEXC2TPBxGHUBz2ZK17xHfR5dCNsy9wh56862HrmCgeXRKTJ/xx9YS7Cr9z+RujrPAr4aBxiIIM8/GlLgQYSgvgrDKWBPWYAeerp+XkNcsBwcCvT6zjr88HzudEQH9tK1vk/VA4y/87dtOcb11EpBsCypzS7nwBHVyn6cF2kMpAgzHAkOql5O70ZFwEMlLVsg2td/zu5dn9gFyF6DCfkHDic80ZZZ3SmZyosVtVrs7LRBvEJFh56KNkJ7tc1mUNE7m636L6tc7HEoQzze5vT/gOlYDig6JyfqjKgsJRh/DSgUfizEfsRKdZLm32hlLiLArDBwdSyiGoUEcrYmC+5afoFIUqQKRFEJv6iBV0GS8qJQ9LAHyAqcmQY+I0iFbvBqtDLV6aUIeT9Dqw2W+d7a3BtQbKDhIoXTFy2SeKW50vRTWmTnAvX/qi4gcIRyvOUas6nHEUTeqPnxUjd9gxdmlztMloDHrN6ornJ/ilZRCuErqR/uUibH7goK6ksX3h0u3KNlWMTJesn3c2OOoVsS1MvD3lKIQ8pTXMCYYW58+K7Ns2Weu+cOfgviK33kWDXRVt9W/T0ndBrENw8CkYbtqa+LMfsZY8aHbdzR/t1Pk2eWFQ2okZaj62Kv4SNxbnfgHKfN75zUgTPDLdKAgZ+LLQRKP6OYta5uYIR3nXmnHTwxpmd4ivd5i7ThR27Tp178QIjeqSMkNredzLHGUbeLNJWZcY9KD8MU9COeh7Lctob9VxVJotsA/IN+EXa9N8kE/DOVLznABYroPUl/0pLLKKczEFZ5BVZhV8PvxkrTRuDa7mLhcRj3NftObCkotX/+W/8JhG/HR8hBvNT1w3nKU888+WgTIRbroYB6Ofj0Kw63tq0BFZ7y5CO4eHsT2g/bMc9RTLQCEnI33hFoZpteyxt3M9Pov5OE/+OOO768Fbff27OpnkmAQLVsdMnI4Or7VsGT1OvqHHil0l2YisbMEIz/pW820ZGttjiyNxJnE4AWeAC7eEXXZk8tCz+K28/o7vLwyPknbeXCxIZfpX6yB1mG0yBRVUR6wcUBjH3gwzkmfIXWoeZp2kPXsNhitxbtxk0S0Invq6iHWvfn6EN8grg4FwvDZIKiQAHp09Ujb9YN9k5Cdc01GnRliWhHksz3VbZlPa3us+2ZMl08ZeLPNpk0Yb3CpKG+dzEu9UeM07/B56/LgntEhmPz2ugI5cUj3QN5cvcEHU2rGarSo9oLJVGiFJAYxBhQZNLfAMCbrd7P4joXslCWlHbLefrOXtoh/tl8AHLxCww9RaRk5XqzXuQELnhEVCseK3T9FNTN5UOpCA22h8xV8bMlrc28uTJxlmdPV1pMZ9i7tvyuqQGi5+BWDuws92QB1HWrXtZOAfXTbkMVB8kTNmwagRxMHarla0dfCag6owT/HpKMEBW9Q/ytDm+dweWOk0XwhwCxPj/f5+SnrROz2UKK0F/GT64CpSM4Oq4lqqksP3rWusDtEwZ95LX0sqSGMruz8EX85G23hw7gDBz4nt2lc4cViWDjjbPmIxgw8ptcvxjqZdPkSKdeiliSPHqlE6M1Ez4oqD2c6h+aLwezj1u0zMj7YwDoTp8PhaBT1WSei5sgkwEPVSfNtc9LBZZu2M0jMvkwgomKiGjZqpzkOdg1vfHZ1Y/JQxvR4kydjPDPdQeC1ED5F12khLpPyTCG5zYJJ61qWAi0Q5tlOEK3JtnO2j76mMZ2ID5poVmCqElUh2cGCVVlaE/L+7QgiLy1QVNhPUWyoAjh9J7YS7k/z4J7uGS0OgrnwSZYkZk6ZT9qswnpKxoaYPHEUs3Uait3q5Ik2JZF/zRJwjEK2wb+GzmJwq+0ezyOiGgQN6zPW6/L8xufoVtlU6MTuCZa5DcJa5e9Xyt0Ib83h2n9OWIrwLGLDzm9q91/GNIQuUDhQ8Hb+CwF1AM+a46t68y3BoP6KQjj/NO75KgpeoCNDmIrxQHSo704+8gID92FjEI6lMgVkxU5vNmrbN19z+JFopLSXq/LPZNvhNCtKQUEAgn+IV/Y7IHxy0inUB8yE05bThNd0qfSjblWY6ws1RraTxDdpq9GskZ5l8B3ecP0LiG3MWYZyFL9y5LnauVcSW2OY80D8Oq2pMr0jeODiIvJXunGGvd43GjfRCu/x46HdaH0w0ikm06BnkKATH40BYrr403VBuCqQrM8iEQK7CeTo11j2Y8q0OmCVCOO7Ws9llVnjc7VYEAMhFPYhLVTwpvti8tmai18jCxeOn68b6KBrSDdf61+cS2Rc1gLRvCUBJwgD4f5lSa9OIbiFpZpdXSBh9i2k05xRQzL0tJn7ZOWzkrz0p+v8+b0N/FN+AMxw9oqqMSgdK5najMl3EAwVHb+ybjFgTBvIi1BJ6NmSJpgd6Ii3KK67AGE7s5K+LReblDOB1OojLN5y6LarXMz3exV7ZUzH2yHvoIoAm/EFZQRC5K4KaXx+vGlCHpF6sYVpWbyhArHtLVy2TAe8z+RvPYuj2OsWJyB0nJ1ObVgG6tu8D2Uw88BEZ3ilnI6qhXyc2fWKOAIL9u5vr3uASbD+hLehxtspK4zFxNoXcBMP/jykt5YwFS7+te4xHIPcll+gY96lZd1HrtRarDVm9x7ThUHKH1i2NATQwWKXrh2UHaXRGV2BCnfwW1xbjgKgOhlKzZewv2S15D2hyJeD6D7+JWns/CjxDtwZDgiWo/poQd3dT46TgxN727p47Zxm1XJdsYvVUuEmUz5QPOfWAPXSv9H6d83GmbzsquS7e4skYW3gFpGpF0FZhR4IhmRej8Pdv1qYSYUUMwlATC7ol8spHonaskZ3sDt4mWCjGRLWX/GmsuMQ0lgLdBkLmW+2kL6WZeLnK5NgR1+cPbdJPC0VpGs+1JhyDvIiAFeQfjJjETkEPzjYSMzOdtx0ZZxSSWR9QO3lqE91JQ3MhGOu69kNvJlsyoArAqEY6yyoObNKyfFTk7xzENB1/3/fZ56iLC8yWwAm4iIqu6OKlYU+A6nouVQmesZP8I6Tr7UI6J2FoJ8G/PeeaTNv/0vZQFO5KFPrLIZWEaCeJNgEFZxQddisPJhaFcYWVBRxtPkofXwku4vo+arZ7hlpyS3JEeZeAREntR3t8AldPdxk8T9jOlfdgBYmL7Li6+XN925CKfTTlJBD+wCEO8G+Gg7YlfPM1tH4RitBeCuposzh1PRygmk2IqK5W0ooyLN9aWKJK4sSe1J1Aw0iSm8PFsa2bI8L+Lj+jMAQAzDYYfoPWcj91cILlag11y4g+JigEbWhKN0e2aX/Fg40J5NQ9kG9bQ3BmvJcK+EueZYrg4e/LdRQYTS1AcHpa0cVqX9D+BFrNrM8AcLrwI0KFZAoZCXP6U4zJ51qefDO32Q5VQF2+dIhgdCEInlliemkZj4HLdAsKvtCjWNYJ5UOE+yxRakphaGELDPWPX1JgSbn4oOfA1LCW3zZZsDB4pjeyrzqyLvDxUdP6q9VCxRYcWBetlMG3N9y7JSNtrC1X6/YuDj6omKSzo+PpJJBPArMKhXzpAMKuNpVXdE1V6j/d5kuWdJUjU+xLCdD04MRkOXhOoZiHssEMdiMbYBIHek4xhRO3YEKH9cT/e/1n/b1982o2FlPGMrt+qn5Urj+gMvntbEhKjXX44Rg9QxYN5dQ6SCRZQcZVMP7F0gcYlwMaP3KRxxcqhRB5HvnVxBFKmvrdMgD0AwpU8oa9E68xMOdqdmBxKaR/pZDLLJNowk6hF8tUtAhpjawhQUc7o508bnPFGjMyLPDNh15+gSx2rwzu2w2zKqHb3AMuzrlw5lLdbrchNqGiDxeQhdSDLN0TzHHBubLzUyBqAEDAuOzxoSmPGoBpSeAL26qOx+YnGCp4LWCz5wspW9RTqmKlJH2eE3vYcWHr2A+IRmasLARxlOAOY4ftbyf0DPrEYN0l+h36YGyf0Co6OvMKobOYp1dBqGPu4XMSHxWitfV3MoUwRNXoIiLBXmCnacwpyPgn4lLSFCCrsKujBXLIZfP1AOGqze2OjCzXN6lz8FjasoWLMrW8fpixvg+hYqZLHAcm8s7YZ364Q/xv4wLB7X7+XYl8x32y/3iD9DkkbI8c0S30eaAu/2JhENlGUpwI/ppdjDwIstPKYQM/KESHXtRm8CGMQMj2GArOokY48H2wJE3Sq+D+uf28fGl3qHRfn0SU5LKLH0LdiI5PWWo+2x7YvJecCXFri7te7mtQ3S6pD9G7j8CuDQCbVE/w+8dLCN3bEWYP17HiyszmxQfZF5ZKs7oEvOzzgpbqSm4Rzw5dZLUihmpAdMM2vOtVY0Genp0DF6XcVPj/W6Sgex1FEnWzcidRFBBshrjbvi/UpU095U0v24RuFmNv3kN79F9hvJTvdKB9IBGESA1MqUTelFaimd3bX+vqXVSP04+/wXd6kTPQrqrDMKP663J/zgXKXEXMcliwBQJGPvDNhedzS2cJzO77kI1e+CFx2/6Bz2O7bZIWZVW4Gm19JJl7MjzGA+l/tGYlaDRk6MzM2buhoYWrnFCvfVZJh6Yh6pQDcB86KhxHsKZQy6nv/5labAPMndgV5YQfGbYIrWC3O7extiFdGHpEewrUJpisqSpUuD52dCCroomXJgs4rp14Q3mEaBL586iDomh5Jy44NO42QV8k2tceh6D1rvrydQoFCcPEPhVem27XFyKvtpi3eyVjWzAyT2WR9xRdc2OJI6LRoshTChKR7g8W5mBQcPRqkxGC4DL2w9aGNKu5E4K8BFSGqtr7SNGaictgoBdpDU/r9WlvW/7ZI+wcGVGhaeMpZj3hTJbIEv9KiCNt8I4ki4UPZR23UEkgW8Lb46C/Koaoy1c+8uak3aVihV4aeH/d5siND9x3vRljTvEAtiZumXzm7dhkT7Ba0lbFxFAtNnd+mAaqjCGHAJU0l57va+alCZTieXj5Ksmljhvt6s67AVUhfjQnyd2wnRp2cEi71IBVdZjDcbzXm487LY/Rx3jZDJY6riFU/RKt9RWZIXawE8gzQYUDnZpy7wLsG3HsvTcC9aYE2IdbRD2AjFwvcapcHk98ndJjMgfsyG6tX0sL9q9EFRITBtMgZL2Nfmra6JmhawJsowOJmXPPexS1sIhwq0qiRN84H7IJo3ixTVqCTRpgpYvMyWkV94v5tW0HQrXsHXdpL7ZtRgpTaM8Km7qZr+n3l3c6GfHS7blryld+F8e9QZBBr9zSmmfBVFrtEt6XpxfjZDOL08kqAwsyU6/uzxbnPkzKoQYbsJTujAVVH9YwSQY2V9Dwt985+dCDWVLU65Axs3gsL+tIl5uByT8wCbs5fchDTH8K+XO2tem31+Li7vBz/ss+btdNXlugUd7V2CbjO12lsajDERmLq3zEacqa+IYHCXCoUUxWj98Gnk4YvCWEYd6PrL7UDch0LtvYvLyFw1KKzRUSR25O52ry4ZMnn+RoDRxyHRQQonHRLVWGIJtuFGd+7ucfs2n3cJEgDadPQ0ZuAEYPQJKsKDX2QJVp8GKRXriIB6YQ67Uk8WB2cM1Px4O5Fi2VGgs+kTuju1+iBgi5s9C/IQn/cS2ERX7jqW9QpGvAJuv2dOLI8AMERUQzyZFrWjTMBx5fmrmgfXZEXzv7uZGScMIRKreRpz7Z4wxwQ+R8HkdcOhdPy/06K4xrglboPQgfIHiHGNq9cACb5MufWMqzCqg69KhjWI0dfRQrmeV+BQRwiKPkaogOPKtGMQwcXImti/odc9UuRORec8G+jPWmOjqYm1ciAVZqlSMob3sZlUquKWN6sxqzUq610CUSNX/QwSnQbYboT9Iq5TEgZmLp5BmyCllhpRC3XDfIP2jmf188k4JASQDpwYS5eNLe4Lhz7QdfG8wRnvfpbDAZhKPo20aE2PUp7rDzOPvI2Qag/hTpGEhzKuRGBbn5Ws4EEfCBEvVf685CTmpk/AiQYu9VnocHOXUF4C54qOJJlZk0a4drvxDLf4LkzEcnJF81I4bJ7akgtg+B44fUokQzA6HgKRg7KakRQVvxWMOBLScOPeC1AuhtuEJIXvXVh5jo3n/K+/6nCjHr30apR20QEUnDAGx2Dk8O8cu6hX8kgsyoAOZnz5NaImWXZQVjHimktqYU5PmCyhCzvrR78anLzWuCpAAd3FYXpbBaU0auz/Ysk4pHCMpL/qcKEPEOiQqzgGaH7gdJZaDglFWww0TEXF2gtXMtsigJdm5gkZhL0KMbKCfl38wMZyTarB8gi6mkg0TC35uClEC85/4aOjd0xBWMyMgvlTP11ttGXwN65q6RYFmImzyTQO+K7Hl86MIra64/5l+yFvc55/9+b93i7qXRcOU6hS6+/hQbBk8ixi0l2DjFSj4vrHcJ3VUUSArCIeNxUsU1UYFyhHmxaP8E6BWeGFY6sEYD/3DUlwfG9WB2ecgtYSMwuo//nwAkbNW8Grf2oUHsS1/pSTe55lZQxsDQ2W365pWq/y1UeVSIy348/OLiI/Ss5Sj6xDdNGyxcn9h4XKJbHANxBtcVEGCqjbI+gEcJ4Xog+t05/CmSw7xQ+M7LM7ACichawC+Rp4weET9UTIDOdjvbm8/B/6d6svoGbA7wiDpS8PIyLS1Fs4Me3wILbsBKjKp2Qsd7HtKmuYJifiP0Mm5Qa3Lpf5X9MozhftAYOLf6P6EAhQPRfvqKFVI6hz6PhgBCKr1pQ6rOoiSNI2jVP40N1fF0nRCyEvZNDTnLU/LiKc4Yo4qikhcBiWVAHXyfcEQSAun/7l2NEpTNhczskaq5kjRJTXD39zY6vHaJUWA52OuiUv8PXKuTKhlNDDylS8zpEFrcG+bG6HuS5yaVvNK710wxet/2PEkZwpEXd2fWl1NRcIr1J/jB8jalZPdIC+bD4YCFdGbIYPS2us50P9bdJhG/ujxSxFQY3N9Z7CP2mJnwLSlDDbzjU8K7cNRiq6tlW7NaFEWCgjpS9vaJ6dUD1jnPnSmaw1WZqa1DhBXWSGo/ODupXMCiG+V8V9VHsPBVxm1GKO73XuHjNBdcb4/8MTh5dLhIuxzYNAasKbK9hWU9aEy+bQotISb+TUU5lk0YSDcFqTDcGx52m3OtCBjTOtMHr/n0JQksRR1HN7l7kSGq92tjCKMsHFZNO//hyAvKe/d2rfafIqxAVMtxGRFED4VPz12LqfJ63E8ZekJYezZQN3nW6CxT9EQSAfL+t4Nzwpous5YnRKXDGQ+YRKMoqioCL0u8+OQuXSa3VZtl0RzlZRamw+4PVGKtl2d0KtpIru7Yl3aNS5hufAbPxJBVNTMxxRXajhQZ4gNW1pwqKKnQgVaR06krUnDftjrHz/9CthUlI2r4K0rrOSahSz2gg42du1h/6Fe5P5wVr4gZwUMqs6ey+M0JCNA2Gv/+Gwe5BDSOtB4yXa6UK2IDgn6gAw/zt5E6vNaxGLjTkPaO4zLgSEeay8hpvUHBwffX5C00x3kmOEKc7vs3P/Qr1oo97boAHiom3vpwbfH9g8Qd458imdRaxGmqlr+nIO4tvEUFiSqhVbsIZeAEZg5bhxvDFoVeRjuyi5cpCGKjSPHixMT6uayFW8VbsmKVtkKzz/14d2KLmVBZREyfh70l54Zm8j1Wa4uC5y7M/JPazNobMe1MQBZYViqsyi6mN3R/q+27mKf+dLERp0ROAGxz2qrP8PYVypO44B7++q20U3yLXIh6xMquXzk3igAzNc8jmGJ7fm/sdgnZMVVR5heXq7YczMzli1vslfyRcoKQpxkNSVrJppU9H6Rnp7UqHorQaVvpKd8l01B4yaTzyCCpuzRdKaTur4YPi0MUfXI0qdE4QcnzBoUQV+S5VXpCcY9tR1bZ3JxpKicb92UKgwfkUwks0S5UovV+QtI37l1VfdHUjYkdNkRzxJAdSDm2LX8zJgyRFAUm0ZpyiazEHmJbfH7KxEe1qkIBuV2FP0qaF6I+2rY4XO7kYbJYO9J0lnNtcnYs09u1x9WFTrC5gnrnDWfXmRv+AZsrETU0gMD/Qxm4U4AtR1ZGFAa5/vlrlp6buUzJCEAvBDfgUfFTWwuUOD5nGYwc5rqZvAgjRCmuWXhn5Or3VbP0r6YAFUxLb2VhAgdvhNJDyCnoB4E0hS75EV6as5HDkxe70nu0SczAEmlQBVagyS2DnVnSCs8bR70zghsWNUR7YqT75Bw9wHZHIevnImPpKcvlZn8h77/FZp40+ciMdsg8HX4YB/+QOonRCcsNWmgGlg26n3CuFrqMzPB0x4pf8d9zRuG5t+MC+8zcklt7aj6EV4o8Ff2dVv8aR3kaBL18iT9R/1ngBGAk0AOdN6bINekShlh9Rv/kZuZjpBHffreXPgf/Fq8pkkdIay0GHrGnrM70cVihRAyH+WFL7iWkV+7ruM3h26YO1ESXM8yHW1N1VjJIqvWATFXfAy89k7WuD2djPnU3EwK1CVma8XWt7MrpqMxuU6BisQV97StVURjEMXDfivOx43nASZrRX9OVi68geYqeNym9LWGNFzzRKlyPnTwMQ5WaCcDKimRLCq53B+sThG0mCV/CoY3YfWN9t7Kx6yCH5FOPngHPJJBL346DmJWTYHBfP17370SGp59Xw9cDIGs2jd31oKTKMJq8Ruuxz0ElHM+TlRAQH6Gf8Xd++z4qnychseuJO1wGHeouDO6kYJEdr8vfN9UUtgUdullpIWAHk4H9ZFiQfiK49CBjmVBmgl1OcqIDnx8X64kvEWjur0M6QUtHVchdj3/fOBNbNkYnJ9bRzQZ/WhtnDxdakJcwXzNwHXiLoDMhZrZrTtr2I6UXuxjL/qbpykRwiEjPfSQg0S+6WK9NS/bp6hUMt1Th0s7lQmLGixTrl0xkGYgwe2QvKz4D63QmYAqjJXGj1+rkLLeWL8yYaJ7g7Gp2tDowzMkV0qHLVrO6pD6E1zuk3ewJQ426l17juTtLDbVjhIlmIWkkCw4jQCpB0q+TCW7yzgGBaHmriYIbhuhahYEJhZcn9ZU85jm196yJ0j0UHZha2xtw92NkJg8EaV3H10FQBjTpAMdfDtOYe1rUNhRtTEaadgD769xP/ja77GGo9Ag86NevRpL0siVCZj2amta0vAKRPRJoJa9+/w0PfRkyz5wOmhRHg/xmvrM+yrtXnfA0IZALsnoU5Wsv+Ym+9yAiNK+YJUUMF8Xb6A8i0xA5LzWTegWCB7BmKGflPaqL31ClYAiYeEsQjEv20jm8sUn1e8cu3PRfh6Kq9wtThK19nuimHVPLJNovTJWZgoAKQP4hBNc0Ovdfm8QcFwawoKmBjN8r3bpfihNHry/sQrGqa6y+L2YhA9EDSOnHS/C305SkYoCWrIwaXMiPzBcV2Oy8ONetK6a+d8c9JfTPfKWXLBzLvLPkg+HEr1kwOpNRfo3p4F9pLKthio4IQvV3iGhJtVtVIE1XpDVOUkRNM3D5MnD6d2iaYK3JM2m5VOvJOH8q1dvS3AZGS0ieqpiEZoOVbfmE5F/6w4e1O+F0rjXfQKNl/LsDM73qqoQwQIhk5R/ff8VTPwa7eMc+ctV4B1NqbckLOTeSVoMHpgqTYdLyGeNR56zPAPce3b03gopxfgfZ5RFZZbBqK/8vuY2ehEkfk6NLwkBwyHLN4DDdfJuQdaPri9jxPuxCF7Tkp4MzHIdG+fUAnCvy+/wKtgLPc6p+974o8dkxKqjkoymICc5mrEQriXYNvCFSfCm3BzSz7kWItfRrgyymDa1Dq4Wesuv44l5ICa9w0dtzSDWCeNKcSFtxpEv5RbV5d0brjGUqZJDhP9NpkCzgGuDI8/HlnDGKGfJSaxT7HToQjSkfKlhKPQe6IfJ5rsxSKusMJHQ7ofQzSiIJKDaQxwQAg4A3FD1lJiIhIs64cD159EArNrTxFSMVlhG3PIBRtJVa1YA0PtSP6uA3m5+CRddptUKU+L3tuOZlwpSRoq/yPCYWlkVlq7qQXoryhSsvlpa/V6wN5syYjrDR7i9IiKltwrpgJ2OrqRH1GZinMjAF5Ua6Lt9zRkxMlSnEwHXhbdE1JOffs/LSqX2SvU7R1K/LxzIIUaSfvSVeaeuXsF9O2GWn6WwimjZSCNI6WWeMaLn8Zi0bBYTyIkJL9JYOit3949Y8Uz2EAm5UPPAbffZFLmsilZYTc8m1OXZ5+LbR2qXwUSlmLYWsFfc3v6w59igyIyke7mtCTtB9Wv0A/gJLjgc26arlWPCp5ptL4bbxDO7Jcm4ysb2OhJCdJoA8vMO+eqdlWB1z75D54IYT9O+tQEnvwOzlYqIjM8W5KLxWJehjPu0MgtkpECvzWfKXcbrANpT3oiGiTIZPseuTej1HPXg2z+UxEUQRC0vAbyHSaDKQ7uYkzRoMwHJOUe9Cmg6HpFa/AFM1p57QKGYZlMLlkFHqO/SH3WIi1AxNxWkswDrhvLvIpmrIN4IYBOZcdwTUm5G4TWoQTzaPOlx8uG7EsTzzwpARbO9s2koXpuEM80+0FYMSYZXOPfIu2pY4HBbB+uRDMSCjTrM8FvEx7pu/o2Up91E+D2YYmB0dJmGj/YUMXLdX6rn/oA6hQOjbAogzC5Nyots3TCSKpL8+0Hvg1TJPPQ1jSIll3yOZHCFTvsDMBqINkgRFyVwAZzEIvZNz76b4ViFQB3W0F1Ja6IHmVhwFtwL88lE1iuwroWmOFtXUSP1V2OSbY29srTX5L+WjAZqcH0zINTRh/ggtVLMW9XLw+uZfucDp3L8ytmwx/L3LOGhUbSBP2aul6tbzKpO4gtEhpb5XDuHOsiuSLCqKFpGj9Xoq8OYHDg9Z6trrkByaYkIxDZp41T47GSFh8ieJl6zCVn+8QBCl6Ifdid54JBQ0P1AKl/SGktr5DBXItGuIPdpszCWT8vJYP26vV2Sbm77iz4rdR49+b5+s6pmT/vkYxYHfaDKIPNainU+eJeaXMc4/d06FIcTdfww7bBfkyi5esmiK4PHdy4kPJA05fOjELNoi2kNegez10PqPMCxWZX8Fi+5ftpz76i0dZ8vj8xPgsZvGu5JymmboIUc81wjf4yZuY8dzuTvhBP1ORsAKShtArhqObrfZdxzZxMMs5f2i5larL00TKBlCUFBN3mRwCx12rthaVlEvKTQ0Q+5iQM1RSa1zjl8+CD2vRwH7zKMycCsa+pM5wxRisTF2r2kZJnftojg/5L0nP2Py1IW6p88/vnYfaqxN7pZCQYVqQT00iNC3jmmSkrTK7TqZGmKk2hCg5GT3Ad72ZSjpDiul+s8n9v/PGKVvdh0qiuAdLnCptlAGdQCss3BWxUmaWEYM14buHqmhZb0KpaS+7wswqn15D4dNpI5k+ctFQvv/0HcNo/UJbSqi8GjmYctxFPgqALxbK9bLWwPTuGAxcePbazFMx+3WT4Bnt+1KdJ/lr5gzaWmyIX0+9yiPjIonw8MCBT7E4FaWltnFgIYx3a1WlaBTaQ9Ezq51h2YHuBjSgG6WZVoTEjHE+DQoq9sCsDv46VwopIctTcPOqPNfJ4X+Te1gh5SWTBspD1eyjXbuMnC5CRaOlT4vJsE0EEbk/GGCKFu5lsoGVAAVYQxSmY3J2F44R/jebuandRGorllyFzTRxPFs39bGO9+scLBi9bpRYjiX+XHDqAI+mNAhxqFRyM56HAdmoeRNACwRmHZkquz3Y4fykuEkXCdNzASQlPpiDugX+TPsDuhdvTotIiwkcr0Se4zghmFOLcPtMp+kXqX7tGFzcVaC3bOgIZza2lZibuyV5vl5GB83ed21m3aZFC5d3J3ltii6VHJSwIhl9/WE/Yque87lIKVMobeeA3jdJM/WvdK6Ic5NwlA8WWJIpLgs0NzIOkTNdXkgQbftJwiBXO356TgPViV+AP0XA3tSWlg3DA0dv+1y8ZuYLxejak4HuBLPrrUIupACcpqazCd/PB8GVQqb5JVzp+lJ8HLipK5I1qhpahJ1+6BLCFXagrM5gAIvYO2EszcZt3dhhh9ZLK2mk1zxxNylNVT7DpQiiWk+IWWGMnTFjvH2j6Og/aK+WpqHmlVZf8MJOUCJKHQH+vivO5Bmrto5dk5cUtD0Zgd5SDUF+2K87/o7LxJeAtGnBKavChzhg4iNa7YSs8QC4l6wPUmfxuitV9qAd0n3mjN+10NKkcsYFb/27BaiCML9IA0Bn7NF3KS1agl9Gl1Dt5WTAuMF48kSj0biuRBIKPeGZaLQ3V/6xPS0TYw4Nne8BcMxK2SMlW9UOEZwAfTOMnnsfFClVJvnEIaYIsVyoP23drrkjOqasCpXJHMkugPICBwRv7ZL5fzcyMPTI+kRvdA90QZGgQDbSMn/BNskM3VPPx2k4QnK2yioMkGwAyhTHaef6B3tssnyVWp2/Hh2CD1nIbPiX/pJ1X0Rd/eo3uXHldq7eBVYQLYeTyyqp5GnWIwyuwnTQOwkHfgWVIjezKTk3hesQX4DxNwgtwLykGg1Ji5MWEYaJq0ZJCjm1NTuE2cVCkH2WHoBfDKyrTcQpvTp4U26Vu0//RCgGTLqqFxqle/7KWjZaCjzAkLVmm0rr/72EMjia3bBTQimVrf9s4WEJTuqIyzIivQPZ/Myh390srThKQQ9GgW0xHQpAZWA9LAs3uy1CzrbARnVizN/ZI2KUBZTFb1Qaa0cngSyQaJELLDzuMKxy31Mr6HgnqlIPEWfsE+OO6rfl9cLVBFnB2wJ5hiTNsPiWCV4A3He2EZJSFqaNz59qbiPgAs5rJP0sxIrD81t5XyRic1pvms1SY0LWvdufwtxCEGqYCs+6tqo7jNhFW8+ijV0U1eeYC4f6/XH0Ze1h7mO77XvZ2lBkyQ2Boz+XYXDvvcby9ceE+rHvRSooSJZXbkdLlzyua3/o4pH37OTpwU4SRuT0XYUAvSDj801uagjQyzYP7Vl+ZoNKJQWK8/4AAVTyyWunRi+cjzbX8muYE/e7wYBD+qaWTS5siZhbVGwpmbRSzZvVGxwHPmbAGnZJ7eJCbaXciYkmlVENWJf0LFTx70OK5JWFYaVjMRIcJos9Jxgn8pD1KSOzSBztgi3tNDgv/TbakWruz/KeojACPHnQKt2KEJ1LkF0YIrJHzvHbYm+LzEc2XAlTwJVO0oFGGS8W1/bpHHo5M9nf77mu8GdUVopxrOyon/ZYDv5MJgjeO8LysM+c9g82y3jAwR+vn82pXh45+biEHf84cHFVDIycwJ+7fLceyNykd5e2aaAZZbreufRlmATVy0B1JDzEDiPnxR4Kce5gtyzTqiNhU08++pKqiJ0tzwsiAHY8A4tuqRwn+DbpXLr6dKg7Mu4yRAVkWeCsoJi1wkS6WcPh5Iz2Uv5mVlkDSqWI+LOHKnchhQPQfzUUtOswg7uRz8MRZfGcqHfFfj08ZOEeweYSBWqrW4XjFMRd8SWwEgG4zTUYQ15As7zrhI2JHUT1OuIGowftuqNqWzWLAQ7umLzfg/l6zpzbNaPGWViQ+k7DqP4rarRlqLEoB4nqTLI/w8CvUlb0vuCYPTbjDpOUgjh6yYkTNVpDCnVW51fiOftOCwN5K+DYKvsOLf2GLoANmWsoFtG/KFteqgpKyHDPLeVmkS5MSOtHuKxSmYCVNzrIqpvdazlPQDhlH/gJFssIeAS4yNJiYuhumFaRtw4KY0yFf5sYv8Z0jEa2PJny/GqJ1976lhSUcNg2i0uS72vT8kZ5+wBHP66Z/6oWxa9aTFo+C+GsEdExmXwhMzkCfBjCw5LZPhAKiInFYFPLVOuG69L4TEbBam2EF4T21oqXzoBMb95UZ8dJifeaiPn17DsnpOoiWh10Cqko5vgJi2HF0zwiVgNriy1veV5qo/icHsk5CJHlc5fpJF6drOvSYqYp3YCGp423koyb4AuJ0NaruZG85JoNopMJLESI4ZAmZTnbDWjRvoN5C1FRKIFL0xMfsrMlmF14vVPbG/+aXssl2a/dy5LcITlJ4ctT7cqUeVr+jq9DqOZKdwZMUikXWYKeATKR1mAgjeZLYTtUC+Hz7Z9BchtRyj6cxcdDkd7esCw7ECv9JPROkqASv2G8zN6dtCQ8BoQcCUXOM3QC/svkiEIMg6v34W6uIf4iyZ9G0VO0mPfdLPOXiMdl0ZquouVzV03PilKFwpTosFKBmxdUvzVLemNrO2d5dxgNZukmWS/RUUcKjayIWkiRK/ftb0zpaFi33e/OTZOEPC2THtdz+anAd38Kd17dkE3wwF42ULvF+HLfVnsyLXfWNSgOV9KnSbEsp0g1tOqnw4sca/78OawfcatzbACbc3jlbSL0fvxE1PsDfS8Q2HWgXRy4XiOAufm177utBSotRkMdrE1ZNnn3Fqqe1vtJDHEDziGZA5gjULdS55ldlGj8+0neKz8MZR06SLIhJY0JOBU/3DABK68BcLAF5dhuF/4SEg4Ytpg1sKCZZXUV97NzVjEAr/rHQ0WRF6bVbZqlqFlNYKqW9PiAebPsmeZznsZiHve52IBdRQU4Y1iOQP0HvcMjwvc31Qk3sNCG4I5fPH4LDdYc5RV2D2m1nENjyDRVhzvZuiyf1KV/ueDA7HjRW5p9FdXFn6ciJH9PXlpnUFV1MdIRQ3tvJBDI1GRRnn5scSCGVq6Q5Ndu+rYoYlv/gt8oMJI3b0MTQXxOQMFA4ioo8yOL7+fTlDMB+/Uj72AQDuR1TX7fPoRP3yP0/fcaZZ5yP8ard569jKJ/xz1CGPOtQGfXrIXKiXI2PYmBvX2xrXGhN52RngfnqUaR8FqHW4MK3Dal2g5QhkwBAHNA43Un3ee66iUrpg8Krx3g+wycp6SqzM6I3Mg+qVZc4/3T/HPSUu/uFidwiKiKG0Nqtu9u7ZtfFmZCX8UD/Ephge6W3MSZKiOFADlFU5E5xQULtMrjpXnRfNrQAHXnUzzQRWM3qJvzmD2v1flceyJBu1V7Lc97KQ0/ErKbHVHxrrTdgECiZF8ML0uJC2YDzQ2mQYcqNY4yP9Z9eqSFRBShjrwNzIgCHh9280TvZdGqy/GbAIkltqEnZPj3FDDrkafEGfxvF2mT21jPdwGBhyaL8XS1Lv42NBGMzakMPYLgmO5PvwAlP4JFvIpXArHKbV/gM+HN6j+0V2Y6G2O8L48g/DHX5bD6IGfS1IPYWRWANW6HOZzuSuH+2aj45Qeqd6Zz8KscMO6OjXgdLFr9mNHNtp/BWyt0LSlUKYBTUbchJULsOlYsvqAJXxsnhQTr/YKiMTUyfMxGXBrFxTzYfe+9TFXIPva5cyp3YSpEzxSeqFNiR7geGP/poCeqlaWJZxgBfKsslpEr9AlWQgpKEXnxf2uJX8ZPKPmEsRqcXK4Dxr1N+hJvo0kNV7eCyjN8aHwpv2HfClm6EsLapTCrV11ExVDsnI66fA3a3m4ytdCdDssuo+ojV/8uoa7IGsXxDYoLrnPIqaLvcBdodfprB7slf+lKNhY7xHHpo1kSC/8I3VOdFagG/MsX83sxZeOAhMA0k2dpP0248et7+sKXataciMPJrgGFRCbQzDAdPJYyVguISG3qgt4tWMujN8xR9Ft3qYwdJehAjpIvdZcouP5V1UoBjMbNXVGgq4Oqg649WK42eGWB4AUwq0KWAd8bcui1dFeqD+kINmVcdQwkAh3zvzlnFxZq+tJNAqLVUF9bENI1jYhH0jxjZR9vu1yD4xk6KM48luSmuKjqG/PTzupfOi7nVNh1O4iKvG0Oq8xiBrLxhawD4xzASWLZNY91Rja7w+W1sIuVPK6gTPAdh9fe6Ex+TITlh7rIWaa0qsIufO1tGCUICpBG27e3rRYE3fl6pDJjXqoGW9invdhLrYTSnzHWaS0aPdwDjEVEpsMqLENZFGV7+ZtpWAOvGDs+NmRDEur+e3U9A4tGvxVVkQhgRwnGdf4ntiXhhwAzGWkRqVUGHckRi5z/knzCPBIGKrQot5RwUCBJitodZ9aruWxAKhgzKgp8U4djOtGJbYrcwdiI77qHBNLO7BSSqhURPooTfw2fPV5ufOCXtDrX71V6D5342h6C0GRI/grx1pu0xGTtWgmfB5ycsEqg+yXf/HF3g9g6Cq/lMQZ+TA0OwN0SrNGVW/k4wY2jmt6M7oQMYdnoEhZQl+vgpdQ6GyhZXAC+lagyme89ugn1jNo76/zx9wUFL9A/BfC2buCn0CU7EX2NE7ZFr93GZ2oJJH7+0p2ONUmSoMqok85yeYQ72qFQQwg+XXn4GfxEd3PNhAXLn0aPw1w+OxDhofbghkSOkab21gHzasJHw3hICm5vmvSE9Gt94eyiGlRevzgtGCWTbHELqD5E5WBFWLSPAJ8ukcSjIUqWY7Jt6JqrjWMhSVB3F02L4LzWw9v3W+z2cOIflBfdzt744R2hQQz8QxsPbtIqmQNMfnXnYtVLuhjmOdMaERIxew+4M3VjZHLMVCSyrHQe59ngeXdh/EmxcbId7xUkMVyqd6ta6lm0VNTgEjLqP6oTaodsN8Z4ZYMZIRObrQDTz9HylCqTqm7NWdRkNUqWkn8XXvbaCljBZIovQsy78w7Fqt+MZgTMNT1qKOP61D2e1ULO4AQ4Oy9RvoBz0LDBb+m+xMt8NRrp6+2sHMXrDE4nZB6fs4oPEpOyLL7UZGB7LXgrdabOla5bCT25h5NdXIEv40lzfjg4rlzm0Qj5MFhLFVfnysRaJHUWmKmdH+nca6nmDagnSEiM9QXgxQYPvlYrrcFLjAldrX15zM4K4psg+cTJr7LQe9M0YYu6R7U9yd/EijQSlh0MJ7aXFjWqVCvBOhpugllu6Zx1WNA6eFbVUz+pRI5RDf4sAo4ouqTLM+cOVURs/vmgb5sxl0nRKl4m9B//NTrDUHTVhk45WYlvStinU/96DEcpnN23L6SylBh88kV2Ipx8xmtWW5TxYiFgBAwsr6OnmJXqG6ZY3ehDGHFHtih/IViWFxMxVQPN1ReK/q0+Mym5lEgSihzdvhhwhjO2bQ2gzLQQShTkM4PoNb88mvmH/wsJXXItftPpcFIiZEpn71bGTsUKE4dRm/RaEJddIj1uo15dIKjaPmk/0YZnMf32pugyi8d+Bo5K5AGM2HajftEyh/G9i6lYSgpD4pACYbe1DPGI9XLspJIlwrhCROelh8sm5rGuROLkjGEALm0ng8G4t6rJUp1TGcpgLfmiO2wvIHL1bADThYsq+SLRXQRVnhqd8x2+aem65qss0ZZOoB5HfXo9ZRx8LEv5VbIvyDhac5svxg77G1qnmbOXQgamjcHf6fstByMr0KX3L11Z2aIdkvEFsZ1UxVaUaCfR1W/2g8X+fn2VmfofLV+q1FX1rZvWsuxUdvRU6R1MQ3dMQqnRHre7dd6geuJWO28ImVsybjxkh+Ah08oR5DJ7u82jJcoe/eoV7+ls16hG0TFAMui9Sz/GwEbuk7ZxeCP+NjYdGsQgQ2PPj11YQ0zaiqEHIul2k2LrkA424kgGtHIex6vfJZNPbOCIeaRZ8uWT4PWhJSBZ0jidvJXzIijW3PkJDUsz1gNex5PQ9WsHyPMpeCCQjh+FtVHEi5Qbxj/iRxfCN4vRSO+LFbxlMolHdY9DYhKDzQ/yBx3DTddNAZ7dmaD0zad8rZIPaP5Wcv7SZdVQuEr46K/6x2fjXw8NjC8rCHTIdi27fiDqSCR65BppP+2erOmF3rmTfz4r3OG6e67t0VQs0ezCp56xwIlL2fizr+2f6tqb66AkbHGXf4hbBbBe3eXVBtqmB4aw4aXruQ0RuluXBAdCnbbV1ywplNwEx/mIMtj5hXh6EjrgKBbzhtoW4j8nXfqnCOw9IjfrfJnIzIiv8y0ld16hTgpus33QV7YUQlCMvc79cx0yiZeoKyCsiZl6eOwyEKlem4s8N306fSx2ydvM8XfNmIO3FT0Wy2/Puol45U934LNAaaLy6+HHFZ98dmraHcu7bfRUpD7MOXM1QlTpNI+vHBHfCMZlYx362+Dyy9A/pKF+ITXPnrfmnRHer+OZFuujo5QcryDrM13yesA0tRHnqMp9E43IRbBN+sCF1acRwj1c/BsR69m1foxKtnBXH/5Pz7tV9x3YUr55FjEVvqGOmuP5wXVxHgayvgURrY4ScrbE+VwYA1jmwvIpNJFi0q54Pb4qe34VhEYghWaAUMMn29lPYYauGTmdNlRKf8j+iLhI00m0gP4+zjQi16tQDXr/0aFPljiIaZs3ih9MF6RQxo7c/RNVlR0E6LnkMxZAL+Jb9ZG/BzD2Cx95hRkqX1ZEO7Ou6oHdhN+1ehzZgwl6axtfOIQLs8l1rVyP7+TLbibijqywtXGmErCIo2sxE00WKXEj/eSy6YVTYEh9Nw+HkroKySOIoRTNWDgEzrSI/66Eq2hobP9kOLro2sJL7I+VJnxHFfX2hEdqX6Rd0C5Dw+nLr38hIdFURoX1PrHJii5HctM+gHcYkZKhW+jsR1CTAxb5ptmgk6GKUgLN0b7BALtsyL6qLOpDI5Y9iCPXqetwguNSEkLXJKT5NI4ikzSEUB8jaEbjYw3qqOXqiTdd8T9zvGYNMaoLXMoOq1oITNs0EQiE7Nera8WnFYV4cOJ4Z2/FYZeKCmp38xagHvZlbw8oKLBkPtusOrNC9ellDExXPO5NXfm6eS0aPXvL56U86XI/QWdOsG/e8wz1JpmaDttOsJxn+ipdCh55fVJxESSKboUHkpmprxXfwPWkEeEzUz1xDoDY3fE4t0qOLS+uyKyw6UIULpG7cRFWFOKKEWgm1Kv/7sj9y2qQDphq+8iFwNim3S7khl7Dxro5bN6H0ZOcGD1vXtPwtg+QEb5zCia7prQvfB7zGR+KES6p+tF2QXFiKyx/zxT7k1WVRzdJXdH1I1Ri7vsjnx00NQSUJFjmAx6oMgUnfJMrrxWRarMQuJs+ZaONuNWUiK1MwOKKgZzZDuO/NtsRKKmukZ5TChxRCLHuiTahKy8zcEE8N+4lPWrXmDVLkoZI4DvvSz9mMg9vzwpUy7mkBbxG6hRz6Jkc9df6Nq64IrzA8ut/0ExbgL4UE4XWX1g3SKIL7Wee0Lf1VXU6eiop0mHuM1GsN/CBIJluWVKbaQteHfHgd9ZRStgeJqaUDqWjAbAuKLNDLVgVbPTHDp3p5fTC9P16hpu/VxtkxSn7d9z9HyAo4YbmXE/wtOhhAYy48AX1hYDk/rZAUP2/VzYx8XpPOw9AlHD5IoHtMkMMQFXtVTKCa76mfc9rJI961QYT6ok0TuIH8es0VTDslzspGHDe8fGbiNN+MZAjBl0rZc5S5/y8cTffakg6Nky7MHsXyeT+NOquOupMxmwgiSIKpCyKLMxGvF2HcWUuXjqblFDXlK3mYVBequqjkNHHqG/7a5TWJYZiAUK9ZgbVjSbKVzaWpHbOQAgZBLTV+vLzNxaxSY2O/b91zmfM6DmvTwrliYSo3U3llEAOgVuLEP8KhKkdsd53a0deyuRY4DOSbEzj82Zbt/w7HCRY9l9go9bK6Yyu+wHZeqmaMM1ujR9UfAxU6DJzwY8QP1EXQhD0whUlzzGn0r+3K5R+Z9HFf8/Xt4rjkjyg/qlvudEl1B12dGCUyH3z0Af895lW1Pvl8JB+TbVGLmiakRS2JITKoSsqB30tDfnzYoPz2ZEfI94Nqov1HrkjxxB8fXJnM3v/I+y8DNT1FTJ8wOkrquFjQeL4L1nxb3arMn+frRGHtqYsBMlwSEPqiLuBYKPQEtHsBHJVJ/7uJQ4lIF3N51pNKsRFQfS1pMO/D+0ucyJp9AJ9EfdGUY572rMoLtTxDCe73AkfQlDXjPlBG2AVibUNCXRmT0pBWXAr/XUkx1Quh5T6NEZN1Dm22CnpnJiaTy2Fvjvxh7f2fMnE0qSEzh+LHudKm1tU8LVHfcU4FKxjP7rsrnYC1Unb0IAefv5atLiEN5NXapj2pyXh16YxVqN9E/OiDTlZb2Cx1YxJVE1wVhAKwWysvWeTfU0/ExPdB4T6t2I97bKSAlQwRHG2TqXJeTAUemh+e0xXH+9s/fwjlud5eBqpMSyMSUeStUBLgHTigODlj5zCDgnC5yJb4hlxzvC2UX8foOP/WYgbfr5LhG6glQcDF/DlfcvYA1LNsni4fosKyXdGb54+q3WV+Qkgf2VHbTWW2xzSTdQJoc5WMHD8IJTwCFQDO/PVzUaKMeljBHJZGwiiFamhgskMwSKUVYF0HDTpwF3sIBVDGBcj+gHObWLPw+SEM3xu1VUrAtGp9V3O75d8I3AIilL0C4Q7+p9ussykF4m7N3q+Z9DFi/3ZEE"};
+let currentPw = null;
+const KEY = "aisec_dash_pw";
+const app = document.getElementById("app");
+
+// ---------- 잠금 해제 ----------
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decrypt(pw){
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(PAYLOAD.salt), iterations:PAYLOAD.it, hash:"SHA-256"},
+    base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(PAYLOAD.iv)}, key, b64(PAYLOAD.ct));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+function gate(msg){
+  app.innerHTML = `<div class="gate"><form id="f">
+    <h1>AI 증권사</h1><p>비밀번호를 입력하면 대시보드가 열립니다.</p>
+    <input type="password" id="pw" autocomplete="current-password" aria-label="비밀번호" required>
+    <label><input type="checkbox" id="rem" checked> 이 기기에서 기억하기</label>
+    <button class="btn" type="submit">열기</button><div class="err" id="err">${msg||""}</div></form></div>`;
+  const f = document.getElementById("f");
+  document.getElementById("pw").focus();
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const pw = document.getElementById("pw").value;
+    try {
+      const data = await decrypt(pw);
+      currentPw = pw;
+      try { document.getElementById("rem").checked ? localStorage.setItem(KEY, pw) : localStorage.removeItem(KEY); } catch(_){}
+      render(data);
+    } catch(_) { document.getElementById("err").textContent = "비밀번호가 맞지 않습니다."; }
+  };
+}
+async function start(){
+  if (!PAYLOAD) { app.innerHTML = '<div class="gate"><p>아직 데이터가 없습니다.</p></div>'; return; }
+  let saved = null; try { saved = localStorage.getItem(KEY); } catch(_){}
+  if (saved) { try { const data = await decrypt(saved); currentPw = saved; render(data); return; } catch(_) { try{localStorage.removeItem(KEY);}catch(_){} } }
+  gate();
+}
+
+// ---------- 표시 도우미 ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isNum = v => typeof v === "number" && isFinite(v);
+const sign = v => isNum(v) ? (v > 0 ? "up" : v < 0 ? "down" : "") : "faint";
+const pp = (v, d=2) => isNum(v) ? `${v > 0 ? "+" : ""}${v.toFixed(d)}%p` : "–";
+const pct = (v, d=1) => isNum(v) ? `${v.toFixed(d)}%` : "–";
+const spct = (v, d=2) => isNum(v) ? `${v > 0 ? "+" : ""}${v.toFixed(d)}%` : "–";
+const usd = (v, d=2) => isNum(v) ? `$${v.toFixed(d)}` : "–";
+const int = v => isNum(v) ? v.toLocaleString("ko-KR") : "–";
+const failed = s => s && s.error ? `<p class="empty">이 구역을 불러오지 못했습니다 (${esc(s.error)}). 다음 갱신 때 다시 시도합니다.</p>` : "";
+const LABEL = {"earnings-ai":"실적 발표 AI","chart-ai":"차트 AI","chart-rules":"차트 규칙","swing-lab":"스크리너","analyst-desk":"애널리스트 데스크","ai-securities":"본사"};
+const DESC = {"earnings-ai":"실적 발표문을 읽고 20일 방향 예측","chart-ai":"규칙 후보 중 AI가 최종 Long으로 고른 것","chart-rules":"차트 규칙 조건만 통과한 후보 (AI 판단 전)","swing-lab":"규칙 기반 눌림 스크리너","analyst-desk":"본사 애널리스트 합의 추천"};
+const STATUS = {incumbent:["정규","inc"], shadow:["섀도","sh"], retired:["퇴출","ret"]};
+const KNOWN_C = {"earnings-ai":"#6f8cff","chart-ai":"#b6c0d8","chart-rules":"#e58bd0","swing-lab":"#f0b35a","analyst-desk":"#52c7a3"};
+const EXTRA_C = ["#e58bd0","#7fd1e8","#c9a26b","#a38bff","#ff9f7a","#9be07a"];
+// 새 부서는 이름으로 색을 정해서, 날마다 같은 색이 유지되게 함
+const col = d => KNOWN_C[d] || EXTRA_C[[...String(d)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % EXTRA_C.length];
+const RESULT = {success:["성공","up"], failure:["실패","down"], cancelled:["취소","faint"], in_progress:["실행 중","warn"], queued:["대기","warn"], timed_out:["시간 초과","down"]};
+
+// ---------- 화면 ----------
+function render(d){
+  const P = d.performance || {}, C = d.costs || {}, R = d.runs || {};
+  app.innerHTML = `<div class="wrap">
+    <header class="top"><h1>AI 증권사</h1>
+      <div class="meta"><span class="${stale(d.generated_utc) ? "warn" : ""}">${esc(d.generated_kst)} 기준 (${esc(ageText(d.generated_utc))})</span>
+        ${d.trigger ? '<button class="refresh" id="refresh">지금 갱신</button>' : ""}<button class="linkbtn" id="lock">잠그기</button></div></header>
+    <div class="status" id="status" role="status" aria-live="polite">${stale(d.generated_utc) ? "하루 넘게 갱신되지 않았습니다. 일일 업무가 실패했는지 확인해 주세요." : ""}</div>
+    ${hero(P, C, R, d.gate)}
+    ${depts(P)}
+    <div class="grid3">${memos(d.memos, P)}${costs(C)}${events(d.events)}</div>
+    ${picks(d.picks)}
+    ${gatePanel(d.gate)}
+    ${rehearsalPanel(d.rehearsal)}
+    ${autoloopPanel(d.autoloop)}
+    ${analysts(d.analysts)}
+    ${field(d.field, P)}
+    ${runs(R)}
+    <footer>매일 아침 08:30(평일 다음 날)과 주간 회의 뒤에 자동으로 갱신됩니다. 성적은 추천 다음 날 시가에 사서 보유했다고 가정한 SPY 대비 초과수익이며, 실제 매매 결과가 아닙니다.</footer>
+  </div>`;
+  document.getElementById("lock").onclick = () => { currentPw = null; try{localStorage.removeItem(KEY);}catch(_){} gate("잠갔습니다."); };
+  const rb = document.getElementById("refresh");
+  if (rb) rb.onclick = () => refreshNow(d.trigger);
+}
+
+function hero(P, C, R, Gt){
+  if (P.error) return `<section class="hero">${failed(P)}</section>`;
+  const k = P.desk || {}, h = k.horizon || 10;
+  const big = k.n ? `<div class="big num ${sign(k.mean)}">${pp(k.mean)}</div>
+      <div class="sub">추천 ${int(k.n)}건, 승률 ${pct(k.hit)}</div>
+      ${isNum(k.ret) ? `<div class="absret">추천 평균 수익률 <b class="num ${sign(k.ret)}">${spct(k.ret)}</b>
+        <span class="muted">같은 기간 SPY</span> <b class="num ${sign(k.spy)}">${spct(k.spy)}</b></div>` : ""}`
+    : `<div class="big faint">채점 대기</div><div class="sub">추천 후 ${h}거래일이 지나면 첫 성적이 표시됩니다.</div>`;
+  const runsTot = (R.repos||[]).reduce((a,r)=>a+(r.total||0),0), ok = (R.repos||[]).reduce((a,r)=>a+(r.ok||0),0);
+  const q = R.quota || 2000, used = R.minutes || 0;
+  const ws = (P.depts||[]).filter(r => isNum(r.weight));
+  const tot = ws.reduce((a,r)=>a+r.weight,0) || 1;
+  const bar = ws.map(r => `<span style="flex-basis:${(r.weight/tot*100).toFixed(1)}%;background:${col(r.dept)}" title="${esc(r.label)}"></span>`).join("");
+  const leg = ws.map(r => `<span><i style="background:${col(r.dept)}"></i>${esc(r.label)} <b class="num">${(r.weight/tot*100).toFixed(0)}%</b>
+      <span class="num ${sign(r.ex10)}">${pp(r.ex10)}</span></span>`).join("");
+  return `<section class="hero">
+    <div class="row">
+      <div><div class="label">본사 추천 성적, ${h}일 보유 기준 SPY 대비 초과수익</div>${big}</div>
+      <div class="side">
+        ${Gt && Gt.ready && isNum(Gt.account_ret_pct) ? `<div><span class="muted">가상 계좌 총 수익률</span><b class="num ${sign(Gt.account_ret_pct)}">${spct(Gt.account_ret_pct)}</b></div>
+        <div class="faint" style="font-size:12.5px;margin-top:-6px"><span>${esc(String(Gt.start_date||"").slice(5))}부터, 같은 기간 SPY</span><span class="num">${spct(Gt.spy_ret_pct)}</span></div>` : ""}
+        <div><span class="muted">이번 달 AI 비용</span><b class="num">${C.error ? "–" : usd(C.month_total)}</b></div>
+        <div><span class="muted">이번 달 실행</span><b class="num">${R.error ? "–" : `${int(runsTot)}회`}${runsTot ? ` <span class="muted">성공 ${Math.round(ok/runsTot*100)}%</span>` : ""}</b></div>
+        <div><span class="muted">GitHub 실행 시간</span><b class="num">${R.error ? "–" : `${int(used)} / ${int(q)}분`}</b></div>
+      </div>
+    </div>
+    <div class="trust"><div class="cap">본사가 각 부서를 믿는 비중 (주간 개선 회의가 성적을 보고 조정), 옆 숫자는 10일 성적</div>
+      <div class="bar">${bar}</div><div class="legend">${leg}</div></div>
+  </section>`;
+}
+
+function depts(P){
+  if (P.error) return `<section class="panel"><h2>부서 성적</h2>${failed(P)}</section>`;
+  const rows = (P.depts||[]).map(r => `<tr>
+    <td><span class="dot" style="background:${col(r.dept)}"></span><span class="name">${esc(r.label)}</span>
+      <span class="desc dd">${esc(r.desc||DESC[r.dept]||"")}</span></td>
+    <td>${int(r.n_cand)}</td>
+    <td class="${r.is_stale ? "warn" : ""}">${r.last_date ? esc(r.last_date.slice(5)) : "–"}${r.is_stale ? ` (${r.stale_days}일 멈춤)` : ""}</td>
+    <td class="${sign(r.ex5)}">${pp(r.ex5)}<span class="desc faint">n=${r.n5}</span></td>
+    <td class="${sign(r.ex10)}">${pp(r.ex10)}<span class="desc faint">n=${r.n10}</span></td>
+    <td class="${sign(r.ex20)}">${pp(r.ex20)}<span class="desc faint">n=${r.n20}</span></td>
+    <td>${pct(r.hit10)}</td><td>${isNum(r.weight) ? r.weight.toFixed(1) : "–"}</td></tr>`).join("");
+  return `<section class="panel"><h2>부서 성적 <small>추천 종목을 샀다면 SPY보다 얼마나 나았는지</small></h2>
+    <div class="scroll"><table><thead><tr><th>부서</th><th>추천</th><th>최근 신호</th><th>5일</th><th>10일</th><th>20일</th><th>10일 승률</th><th>가중치</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></section>`;
+}
+
+function memos(M, P){
+  if (!M || M.error) return `<section class="panel"><h2>최근 결정</h2>${failed(M)}</section>`;
+  const block = (j, name) => j ? `<div class="inner"><h3>${esc(name)} <span class="faint" style="font-weight:400">${esc(j.title.replace(/ 주간.*$/,""))}</span></h3>
+      <ul class="memo">${j.decisions.map(x=>`<li>${esc(x)}</li>`).join("") || "<li>기록 없음</li>"}</ul>
+      ${j.ai ? `<p class="muted" style="font-size:13px;margin:8px 0 0">${esc(j.ai)}</p>` : ""}</div>`
+    : `<div class="inner"><h3>${esc(name)}</h3><p class="empty">아직 회의 기록이 없습니다.</p></div>`;
+  const ch = (P && P.changes || []).map(c => `<li><span class="faint num">${esc(c.date.slice(5))}</span> ${esc(c.text)}</li>`).join("");
+  return `<section class="panel"><h2>최근 결정</h2>${block(M.improve, "개선 회의")}${block(M.evolve, "진화 회의")}
+    ${ch ? `<div class="inner"><h3>설정 변경 이력</h3><ul class="memo">${ch}</ul></div>` : ""}</section>`;
+}
+
+function costs(C){
+  if (!C || C.error) return `<section class="panel"><h2>비용</h2>${failed(C)}</section>`;
+  const rows = (C.items||[]).map(i => `<div class="inner"><div style="display:flex;justify-content:space-between;gap:10px">
+      <b>${esc(i.source)}</b><b class="num">${usd(i.month, 3)}</b></div>
+      <span class="muted" style="font-size:13px">누적 ${usd(i.total, 3)}${isNum(i.calls) ? `, 이번 달 ${int(i.calls)}회 호출` : ""}<br>${esc(i.detail)}</span></div>`).join("");
+  return `<section class="panel"><h2>이번 달 AI 비용 <small>${esc(C.month)}</small></h2>${rows}
+    <p class="muted" style="font-size:12.5px;margin:10px 0 0">GitHub 실행은 월 무료 시간 안이면 $0입니다.</p></section>`;
+}
+
+function events(E){
+  if (!E || E.error) return `<section class="panel"><h2>다가오는 일정</h2>${failed(E)}</section>`;
+  const rows = E.map(e => `<div class="ev"><div class="dday ${e.days <= 3 && e.kind !== "run" ? "soon" : ""}">${e.days === 0 ? "오늘" : "D-" + e.days}</div>
+      <div><b>${esc(e.title)}</b><span>${esc(e.date.slice(5))}${e.time ? " " + esc(e.time) : ""}, ${esc(e.note)}</span></div></div>`).join("");
+  return `<section class="panel"><h2>다가오는 일정</h2>${rows || '<p class="empty">예정된 일정이 없습니다.</p>'}</section>`;
+}
+
+function picks(K){
+  if (!K || K.error) return `<section class="panel"><h2>오늘의 추천</h2>${failed(K)}</section>`;
+  const desk = K.desk && K.desk.rows || [];
+  const rows = desk.slice(0, 8).map(r => `<div class="pick"><span class="t">${esc(r.ticker)}</span>
+      <span class="num muted">${isNum(r.score) ? r.score.toFixed(0) + "점" : ""}</span>
+      <span class="r">${r.agents.length ? `<b style="color:var(--text);font-weight:500">${esc(r.agents.join(", "))}</b><br>` : ""}${esc(r.reason)}</span></div>`).join("");
+  const other = (K.depts||[]).map(x => {
+    const list = (x.rows||[]).slice(0, 10).map(r => esc(r.ticker)).join(", ");
+    return `<div class="inner"><h3><span class="dot" style="background:${col(x.dept)}"></span>${esc(x.label||LABEL[x.dept]||x.dept)} <span class="faint" style="font-weight:400">${x.date ? esc(String(x.date).slice(5)) : ""}</span></h3>
+      <span class="${list ? "" : "muted"}" style="font-size:14px">${list || "최근 매수 후보 없음"}</span></div>`;
+  }).join("");
+  return `<section class="panel"><h2>오늘의 추천 <small>${K.desk ? `애널리스트 데스크 ${esc(K.desk.date)}` : ""}</small></h2>
+    ${rows || '<p class="empty">애널리스트 데스크 추천이 아직 없습니다. 다음 일일 업무 뒤에 표시됩니다.</p>'}
+    <div class="grid-field" style="margin-top:12px">${other}</div></section>`;
+}
+
+function spark(vals){
+  const v = (vals||[]).filter(isNum); if (v.length < 2) return "";
+  const mn = Math.min(...v), mx = Math.max(...v), W = 300, H = 46, r = (mx - mn) || 1;
+  const pts = v.map((x, i) => `${(i / (v.length - 1) * W).toFixed(1)},${(H - 4 - (x - mn) / r * (H - 8)).toFixed(1)}`).join(" ");
+  const c = v[v.length - 1] >= v[0] ? "var(--up)" : "var(--down)";
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function gatePanel(G){
+  const title = `<h2>통제 게이트 <small>리스크·컴플라이언스, 섀도 모드 (주문 없음, 가상 장부)</small></h2>`;
+  if (!G || G.error) return `<section class="panel">${title}${failed(G)}</section>`;
+  if (!G.ready) return `<section class="panel">${title}<p class="empty">아직 게이트가 한 번도 돌지 않았습니다. 다음 일일 업무 뒤에 표시됩니다.</p></section>`;
+  const ret = isNum(G.equity) ? (G.equity / G.account - 1) * 100 : null;
+  const halt = G.halted ? `<div class="halt"><b>킬스위치 발동, 신규 진입 중단</b><br>${G.reasons.map(esc).join("<br>")}</div>` : "";
+  const stat = `<div class="gstat">
+    <div class="inner"><span class="lbl">가상 계좌</span><b class="num">$${int(Math.round(G.equity||0))}</b><span class="sub2 num ${sign(ret)}">${spct(ret)}</span>${spark(G.curve)}</div>
+    <div class="inner"><span class="lbl">오늘</span><b class="num ${sign(G.day_pct)}">${spct(G.day_pct)}</b><span class="sub2 num ${sign(G.week_pct)}">이번 주 ${spct(G.week_pct)}</span></div>
+    <div class="inner"><span class="lbl">고점 대비</span><b class="num ${sign(G.dd_pct)}">${spct(G.dd_pct)}</b><span class="sub2 ${G.halted ? "nobadge" : "okbadge"}">킬스위치 ${G.halted ? "발동" : "정상"}</span></div>
+    <div class="inner"><span class="lbl">청산된 거래</span><b class="num">${int(G.stats.n)}건</b><span class="sub2 muted">승률 ${pct(G.stats.win)}, 평균 ${isNum(G.stats.avg_r) ? G.stats.avg_r.toFixed(2) + "R" : "–"}</span></div></div>`;
+  const today = (G.today||[]).map(t => { const ok = t.decision === "통과"; return `<tr>
+    <td><span class="name">${esc(t.ticker)}</span><span class="desc">${esc(t.depts||"")}</span></td>
+    <td class="${ok ? "up" : "down"}">${esc(t.decision)}</td>
+    <td class="why">${ok ? (t.warns ? `<span class="warn">${esc(t.warns)}</span>` : "모든 규칙 통과") : esc(t.fails)}</td>
+    <td>${ok ? `$${isNum(t.entry_plan) ? t.entry_plan.toFixed(2) : "–"}<span class="desc faint">손절 $${isNum(t.stop_plan) ? t.stop_plan.toFixed(2) : "–"}, 목표 $${isNum(t.target_plan) ? t.target_plan.toFixed(2) : "–"}</span>` : "–"}</td>
+    <td>${ok ? `${int(t.shares_plan)}주<span class="desc faint">위험 ${usd(t.risk_usd, 0)}</span>` : "–"}</td></tr>`; }).join("");
+  const live = (G.live||[]).map(p => { const pl = isNum(p.last) && isNum(p.entry) ? (p.last / p.entry - 1) * 100 : null; return `<tr>
+    <td><span class="name">${esc(p.ticker)}</span><span class="desc">${esc(p.sector||"")}</span></td>
+    <td class="${p.status === "open" ? "" : "warn"}">${p.status === "open" ? "보유 중" : "진입 대기"}</td>
+    <td>${isNum(p.entry) ? "$" + p.entry.toFixed(2) : "–"}<span class="desc faint">${esc(String(p.entry_date||"").slice(5))}</span></td>
+    <td class="muted">${isNum(p.stop) ? "$" + p.stop.toFixed(2) : "–"} / ${isNum(p.target) ? "$" + p.target.toFixed(2) : "–"}</td>
+    <td class="${sign(pl)}">${spct(pl)}</td></tr>`; }).join("");
+  const closed = (G.closed||[]).map(c => `<tr><td><span class="name">${esc(c.ticker)}</span></td><td class="muted">${esc(String(c.exit_date||"").slice(5))}</td>
+    <td>${esc(c.exit_reason||"")}</td><td class="${sign(c.r_multiple)}">${isNum(c.r_multiple) ? (c.r_multiple > 0 ? "+" : "") + c.r_multiple.toFixed(2) + "R" : "–"}</td>
+    <td class="${sign(c.pnl_usd)}">${isNum(c.pnl_usd) ? (c.pnl_usd > 0 ? "+" : "−") + "$" + Math.abs(c.pnl_usd).toFixed(0) : "–"}</td></tr>`).join("");
+  const why = (G.top_reasons||[]).map(([k, n]) => `<li>${esc(k)} <span class="muted num">${n}회</span></li>`).join("");
+  const rg = G.regime || null;
+  const rcls = !rg ? "muted" : rg.state === "block" ? "nobadge" : rg.state === "caution" ? "warn" : rg.state === "normal" ? "okbadge" : "muted";
+  const regime = rg ? `<p style="margin:0 0 12px;font-size:14px"><span class="muted">시장 국면</span> <b class="${rcls}">${esc(rg.label)}</b></p>` : "";
+  return `<section class="panel">${title}${halt}${regime}${stat}
+    <div class="inner"><h3>오늘의 판정 <span class="faint" style="font-weight:400">${esc(G.signal_date||"")} 신호, 다음 거래일 시가 진입 가정</span></h3>
+      ${today ? `<div class="scroll"><table><thead><tr><th>종목</th><th>판정</th><th style="text-align:left">이유</th><th>진입 계획</th><th>수량</th></tr></thead><tbody>${today}</tbody></table></div>` : '<p class="empty">오늘 판정할 티켓이 없습니다.</p>'}</div>
+    <div class="grid-field" style="grid-template-columns:1fr 1fr;margin-top:10px">
+      <div class="inner"><h3>가상 보유</h3>${live ? `<div class="scroll"><table><thead><tr><th>종목</th><th>상태</th><th>진입</th><th>손절 / 목표</th><th>손익</th></tr></thead><tbody>${live}</tbody></table></div>` : '<p class="empty">보유 중인 포지션이 없습니다.</p>'}</div>
+      <div class="inner"><h3>최근 청산</h3>${closed ? `<div class="scroll"><table><thead><tr><th>종목</th><th>청산</th><th>사유</th><th>R</th><th>손익</th></tr></thead><tbody>${closed}</tbody></table></div>` : '<p class="empty">아직 청산된 거래가 없습니다.</p>'}</div>
+    </div>
+    <div class="inner" style="margin-top:10px"><h3>자주 걸린 규칙 <span class="faint" style="font-weight:400">지금까지 ${int(G.n_judged)}건 판정, ${int(G.n_pass)}건 통과</span></h3>
+      ${why ? `<ul class="chips">${why}</ul>` : '<p class="empty">거절 기록이 없습니다.</p>'}</div></section>`;
+}
+
+function autoloopPanel(A){
+  const title = `<h2>자동 개발 <small>매일 점검관 · 주간 연구원 · 텔레그램 승인</small></h2>`;
+  if (!A || A.error) return `<section class="panel">${title}${failed(A)}</section>`;
+  if (!A.ready) return `<section class="panel">${title}<p class="empty">아직 자동 개발 루프 기록이 없습니다.</p></section>`;
+  const mode = !A.enabled ? '<b class="warn">정지</b>' : A.mode === "live" ? "실전 머지 모드" : `연습 모드 (승인해도 머지 안 함)${A.start_date ? `, ${esc(A.start_date)} 시작` : ""}`;
+  const paused = (A.paused||[]).map(x => `<li class="warn">${esc(x)}</li>`).join("");
+  const pend = (A.pending||[]).map(p => `<li><b class="num">#${int(p.pr)}</b> ${esc(p.title)} <span class="muted">${esc(p.reported)} 보고 · 텔레그램 "승인 ${int(p.pr)}"</span></li>`).join("");
+  const R = A.research || {};
+  const exps = (R.recent||[]).map(e => `<tr><td>${esc(e.id)}</td><td>${esc(e.date)}</td><td>${isNum(e.variants) ? int(e.variants) : "–"}</td>
+      <td class="${e.result === "합격" ? "up" : (String(e.result||"").startsWith("불합격") ? "down" : "")}">${esc(e.result)}</td><td class="muted" style="font-size:12.5px">${esc(e.detail)}</td></tr>`).join("");
+  const sh = (A.shadows||[]).filter(x => x.status === "active" || x.status === "promote_proposed").map(x => {
+    const m = Object.entries(x.metrics||{}).map(([k,v]) => `${esc(k)} <b class="num">${isNum(v) ? v : "–"}</b>`).join(" · ");
+    return `<li><b>${esc(x.id)}</b> ${esc(x.title)} <span class="muted">${x.start ? `${esc(x.start)} 시작, ${isNum(x.week) ? int(x.week) : 0}/${int(x.weeks)}주` : "첫 기록 대기"}${x.status === "promote_proposed" ? " · 정식 반영 제안됨" : ""}</span><br><span style="font-size:12.5px">${m || "아직 성적 없음"}</span></li>`; }).join("");
+  const D = A.dev_cost || {}, B = A.budget || {};
+  const apiPct = isNum(B.api_total) && isNum(B.api_cap) && B.api_cap ? Math.round(B.api_total / B.api_cap * 100) : null;
+  const actPct = isNum(B.actions_min) && isNum(B.actions_quota) && B.actions_quota ? Math.round(B.actions_min / B.actions_quota * 100) : null;
+  return `<section class="panel">${title}
+    <p class="muted" style="font-size:13px;margin:0 0 10px">상태: ${mode}</p>
+    ${paused ? `<ul class="chips">${paused}</ul>` : ""}
+    <div class="grid-field" style="grid-template-columns:1fr 1fr">
+      <div class="inner"><h3>승인 대기 PR</h3>${pend ? `<ul style="margin:0;padding-left:18px">${pend}</ul>` : '<p class="empty">없음</p>'}</div>
+      <div class="inner"><h3>자동 개발 비용 <small class="muted">${esc(D.month||"")}, 운영비와 별도</small></h3>
+        <div style="display:flex;justify-content:space-between"><span>점검관</span><b class="num">${usd(D.inspector, 2)}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>연구원</span><b class="num">${usd(D.researcher, 2)}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>합계</span><b class="num">${usd(D.total, 2)}</b></div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">월 API 전체 ${usd(B.api_total)} / 상한 ${usd(B.api_cap, 0)}${apiPct !== null ? ` (${apiPct}%)` : ""} ·
+          Actions 약 ${int(B.actions_min)} / ${int(B.actions_quota)}분${actPct !== null ? ` (${actPct}%)` : ""}${(B.actions_unknown||[]).length ? `, 확인 못 함: ${esc(B.actions_unknown.join(", "))}` : ""}</p></div>
+    </div>
+    <div class="inner" style="margin-top:10px"><h3>연구 현황 <small class="muted">이번 달 실험 ${int(R.month_count)}/${int(R.monthly_max)}회 · 누적 실험 ${int(R.total_experiments)}회, 시험한 변형 ${int(R.total_variants)}개 · 합격 ${int(R.passed)} · 불합격 ${int(R.failed)}${R.errors ? ` · 오류 ${int(R.errors)}` : ""}</small></h3>
+      ${exps ? `<div class="scroll"><table><thead><tr><th>실험</th><th>날짜</th><th>변형</th><th>결과</th><th>내용</th></tr></thead><tbody>${exps}</tbody></table></div>` : '<p class="empty">실험 기록이 없습니다.</p>'}
+      <p class="muted" style="font-size:12.5px;margin:6px 0 0">같은 구간에서 여러 번 시험할수록 우연히 좋아 보이는 결과가 나올 수 있어, 누적 시도 횟수를 함께 봅니다.</p></div>
+    <div class="inner" style="margin-top:10px"><h3>섀도 시험 중인 개선안 <small class="muted">비중 0, 실전 장부에 반영 안 됨</small></h3>${sh ? `<ul style="margin:0;padding-left:18px">${sh}</ul>` : '<p class="empty">없음</p>'}</div>
+  </section>`;
+}
+
+function rehearsalPanel(R){
+  const title = `<h2>과거 리허설 <small>이미 나온 실전 추천을 하루씩 다시 재생, 그날까지의 데이터만 사용</small></h2>`;
+  if (!R || R.error) return `<section class="panel">${title}${failed(R)}</section>`;
+  if (!R.ready) return `<section class="panel">${title}<p class="empty">아직 리허설을 돌리지 않았습니다. Actions → "과거 리허설" → Run workflow로 실행할 수 있습니다.</p></section>`;
+  const row = (name, m, extra) => `<tr><td><span class="name">${name}</span>${extra ? `<span class="desc">${extra}</span>` : ""}</td>
+    <td class="${sign(m.return_pct)}"><b>${spct(m.return_pct)}</b></td>
+    <td class="${sign(m.realized_pct)}">${spct(m.realized_pct)}</td><td class="${sign(m.unrealized_pct)}">${spct(m.unrealized_pct)}</td>
+    <td class="down">${spct(m.mdd_pct)}</td>
+    <td>${isNum(m.trades) ? int(m.trades) : "–"}</td><td>${isNum(m.win_pct) ? pct(m.win_pct) : "–"}</td>
+    <td class="${sign(m.avg_r)}">${isNum(m.avg_r) ? (m.avg_r > 0 ? "+" : "") + m.avg_r.toFixed(2) + "R" : "–"}</td>
+    <td>${isNum(m.profit_factor) ? m.profit_factor.toFixed(2) : "–"}</td></tr>`;
+  const deps = (R.by_dept||[]).map(d => `<tr><td><span class="dot" style="background:${col(d.dept)}"></span><span class="name">${esc(LABEL[d.dept]||d.dept)}</span></td>
+    <td>${int(d.trades)}</td><td>${pct(d.win_pct)}</td><td class="${sign(d.avg_r)}">${(d.avg_r > 0 ? "+" : "") + d.avg_r.toFixed(2)}R</td>
+    <td class="${sign(d.pnl)}">${(d.pnl > 0 ? "+" : d.pnl < 0 ? "−" : "") + "$" + Math.abs(d.pnl).toFixed(0)}</td></tr>`).join("");
+  const why = (R.top_reasons||[]).map(([k, n]) => `<li>${esc(k)} <span class="muted num">${n}회</span></li>`).join("");
+  const few = (R.gated && R.gated.trades < 30) ? `<p class="warn" style="font-size:13px;margin:0 0 10px">청산된 거래가 ${int(R.gated.trades)}건뿐이라 아직 우연의 영향이 큽니다. 방향만 참고하세요.</p>` : "";
+  return `<section class="panel">${title}
+    <p class="muted" style="font-size:13px;margin:0 0 10px">${esc(R.period[0])} ~ ${esc(R.period[1])}, 추천 ${int(R.n_candidates)}건, 신호일 ${int(R.n_signal_days)}일, ${int(R.holding_days)}거래일 보유 기준. 티켓 ${int(R.n_tickets)}건 중 게이트 통과 ${int(R.n_pass)}건.</p>
+    ${few}
+    <div class="scroll"><table><thead><tr><th>구분</th><th>수익률</th><th>실현</th><th>평가(보유 중)</th><th>최대 낙폭</th><th>청산 거래</th><th>승률</th><th>평균 R</th><th>손익비</th></tr></thead><tbody>
+      ${row("게이트 적용", R.gated, "지금 규칙 그대로")}${row("게이트 없이", R.ungated, "같은 추천을 전부 매수")}${row("SPY 보유", R.spy, "같은 기간")}
+    </tbody></table></div>
+    <p class="muted" style="font-size:12.5px;margin:6px 0 0">수익률 = 실현 + 평가. 실현은 이미 청산한 거래, 평가는 아직 보유 중인 종목의 손익입니다. 승률·평균 R·손익비는 청산한 거래만 계산합니다.</p>
+    <div class="grid-field" style="grid-template-columns:1fr 1fr;margin-top:10px">
+      <div class="inner"><h3>가상 계좌 흐름</h3>
+        <p class="muted" style="font-size:12.5px;margin:0">게이트 적용</p>${spark(R.curve_gated)}
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">게이트 없이</p>${spark(R.curve_ungated)}</div>
+      <div class="inner"><h3>부서별 (게이트 적용)</h3>${deps ? `<div class="scroll"><table><thead><tr><th>부서</th><th>거래</th><th>승률</th><th>평균</th><th>손익</th></tr></thead><tbody>${deps}</tbody></table></div>` : '<p class="empty">청산된 거래가 없습니다.</p>'}</div>
+    </div>
+    <div class="inner" style="margin-top:10px"><h3>리허설에서 자주 걸린 규칙</h3>${why ? `<ul class="chips">${why}</ul>` : '<p class="empty">거절 기록이 없습니다.</p>'}</div>
+  </section>`;
+}
+
+function analysts(A){
+  if (!A || A.error) return `<section class="panel"><h2>애널리스트 리그</h2>${failed(A)}</section>`;
+  const rows = (A.agents||[]).map(a => { const [t, c] = STATUS[a.status] || [a.status, ""]; return `<tr>
+    <td><span class="name">${esc(a.style)}</span><span class="chip ${c}">${t}</span><span class="desc">${esc(a.id)}${a.note ? ", " + esc(a.note) : ""}</span></td>
+    <td class="${sign(a.mean)}">${a.n ? pp(a.mean) : "–"}</td><td>${a.n ? pct(a.hit) : "–"}</td><td>${int(a.n)}</td><td class="muted">${esc(a.created.slice(5))}</td></tr>`; }).join("");
+  const fl = (A.fission||[]).map(f => `<li><span class="faint num">${esc(f.date.slice(5))}</span> ${f.family ? esc(f.family) : "분열 없음"}${f.rejected ? ` <span class="warn">(거부: ${esc(f.rejected)})</span>` : ""}, ${esc(f.rationale||"")}</li>`).join("");
+  return `<section class="panel"><h2>애널리스트 리그 <small>${A.horizon}일 보유, 상위 추천 기준 SPY 대비</small></h2>
+    <div class="scroll"><table><thead><tr><th>애널리스트</th><th>${A.horizon}일 성적</th><th>승률</th><th>표본</th><th>투입</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${fl ? `<div class="inner" style="margin-top:12px"><h3>최근 분열 시도</h3><ul class="memo">${fl}</ul></div>` : ""}</section>`;
+}
+
+function field(F, P){
+  if (!F || F.error) return `<section class="panel"><h2>부서 현장</h2>${failed(F)}</section>`;
+  const e = F.earnings, c = F.chart, s = F.swing || {};
+  const ea = e ? `<div class="inner"><h3><span class="dot" style="background:var(--c-earnings-ai)"></span>실적 발표 AI 가상매수</h3>
+      <span class="muted" style="font-size:13px">전체 ${int(e.n_total)}건 중 성적 확정 ${int(e.n_done)}건${isNum(e.ex_mean) ? `, 평균 <span class="${sign(e.ex_mean)}">${pp(e.ex_mean)}</span>, 승률 ${pct(e.hit)}` : ""}</span>
+      <div class="scroll" style="margin-top:8px"><table><thead><tr><th>종목</th><th>수익률</th><th>SPY 대비</th><th>청산 예정</th></tr></thead><tbody>
+      ${(e.holdings||[]).map(h => `<tr><td><span class="name">${esc(h["종목"])}</span></td><td class="${sign(h["수익률%"])}">${spct(h["수익률%"])}</td>
+        <td class="${sign(h["초과수익%"])}">${pp(h["초과수익%"])}</td><td class="muted">${esc(String(h["매도 예정일"]||"").slice(5))}</td></tr>`).join("") || '<tr><td colspan="4" class="muted">보유 중인 가상매수 없음</td></tr>'}
+      </tbody></table></div></div>` : `<div class="inner"><h3>실적 발표 AI</h3><p class="empty">보고서를 찾지 못했습니다.</p></div>`;
+  const ch = c ? `<div class="inner"><h3><span class="dot" style="background:var(--c-chart-ai)"></span>차트 AI 가상매매</h3>
+      <div class="scroll"><table><tbody>
+      <tr><td>건수</td><td>${int(c.n)}</td></tr><tr><td>승률</td><td>${pct(c.hit)}</td></tr>
+      <tr><td>평균 수익률</td><td class="${sign(c.mean)}">${spct(c.mean)}</td></tr><tr><td>중앙값</td><td class="${sign(c.median)}">${spct(c.median)}</td></tr>
+      <tr><td>SPY 대비</td><td class="${sign(c.ex)}">${pp(c.ex)}</td></tr><tr><td>최대 손실</td><td class="down">${spct(c.mdd)}</td></tr>
+      </tbody></table></div></div>` : `<div class="inner"><h3>차트 AI</h3><p class="empty">성적표를 찾지 못했습니다.</p></div>`;
+  const tbl = (x, key, title) => x ? `<h3 style="margin-top:4px">${title} <span class="faint" style="font-weight:400">${esc(x.date.slice(5))}</span></h3>
+      <div class="scroll"><table><thead><tr><th>구분</th><th>CAGR</th><th>MaxDD</th><th>Sharpe</th></tr></thead><tbody>
+      ${x.rows.map(r => `<tr><td>${esc(r[key])}</td><td class="${sign(r["CAGR(%)"])}">${spct(r["CAGR(%)"])}</td><td class="down">${spct(r["MaxDD(%)"],1)}</td><td>${isNum(r.Sharpe) ? r.Sharpe.toFixed(2) : "–"}</td></tr>`).join("")}
+      </tbody></table></div>` : "";
+  const sw = (s.rotation || s.backtest) ? `<div class="inner"><h3><span class="dot" style="background:var(--c-swing-lab)"></span>스크리너 백테스트</h3>
+      ${tbl(s.backtest, "구분", "눌림 전략")}${tbl(s.rotation, "전략", "섹터 로테이션")}</div>`
+    : `<div class="inner"><h3>스크리너</h3><p class="empty">백테스트 결과를 찾지 못했습니다.</p></div>`;
+  const extra = ((P && P.depts) || []).filter(r => !r.known).map(r => `<div class="inner"><h3><span class="dot" style="background:${col(r.dept)}"></span>${esc(r.label)}</h3>
+      <div class="scroll"><table><tbody>
+      <tr><td>추천</td><td>${int(r.n_cand)}건</td></tr><tr><td>최근 신호</td><td>${r.last_date ? esc(r.last_date.slice(5)) : "–"}</td></tr>
+      <tr><td>10일 성적</td><td class="${sign(r.ex10)}">${pp(r.ex10)}</td></tr><tr><td>10일 승률</td><td>${pct(r.hit10)}</td></tr>
+      </tbody></table></div><p class="muted" style="font-size:12.5px;margin:8px 0 0">${esc(r.desc)}. 이 부서 자체 성적표는 아직 연결되지 않았습니다.</p></div>`).join("");
+  return `<section class="panel"><h2>부서 현장 <small>각 부서가 자기 저장소에 기록한 성적</small></h2><div class="grid-field">${ea}${ch}${sw}${extra}</div></section>`;
+}
+
+function runs(R){
+  if (!R || R.error) return `<section class="panel"><h2>실행 현황</h2>${failed(R)}</section>`;
+  const q = R.quota || 2000, used = R.minutes || 0;
+  const rows = (R.repos||[]).map(r => r.error ? `<tr><td><span class="name">${esc(r.label||LABEL[r.repo]||r.repo)}</span><span class="desc">${esc(r.repo)}</span></td>
+      <td colspan="4" class="warn" style="text-align:left">${esc(r.error)}</td></tr>`
+    : `<tr><td><span class="name">${esc(r.label||LABEL[r.repo]||r.repo)}</span><span class="desc">${esc(r.repo)}</span>
+        <details><summary>워크플로 ${r.workflows.length}개</summary>${r.workflows.map(w => { const [t,c] = RESULT[w.last_result] || [w.last_result||"–",""];
+          return `<div style="font-size:13px;margin-top:4px;white-space:normal">${esc(w.name)} <span class="muted">${w.count}회, 마지막 ${esc(w.last_time||"–")}</span> <span class="${c}">${esc(t)}</span></div>`; }).join("")}</details></td>
+      <td>${int(r.total)}</td><td class="up">${int(r.ok)}</td><td class="${r.fail ? "down" : "faint"}">${int(r.fail)}</td><td>${int(r.minutes)}분</td></tr>`).join("");
+  return `<section class="panel"><h2>실행 현황 <small>${esc(R.month||"")} 이번 달</small></h2>
+    <div style="display:flex;justify-content:space-between;font-size:13px" class="muted"><span>GitHub 무료 실행 시간</span><span class="num">${int(used)} / ${int(q)}분 (추정)</span></div>
+    <div class="quota"><span style="width:${Math.min(100, used/q*100).toFixed(1)}%;${used/q > .8 ? "background:var(--warn)" : ""}"></span></div>
+    <div class="scroll" style="margin-top:10px"><table><thead><tr><th>저장소</th><th>실행</th><th>성공</th><th>실패</th><th>시간</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+}
+
+// ---------- 지금 갱신 ----------
+function ageText(iso){
+  if (!iso) return "–";
+  const ms = Date.now() - Date.parse(iso), h = ms / 3.6e6;
+  if (h < 1) return `${Math.max(1, Math.round(ms / 6e4))}분 전`;
+  if (h < 48) return `${Math.round(h)}시간 전`;
+  return `${Math.round(h / 24)}일 전`;
+}
+const stale = iso => iso && (Date.now() - Date.parse(iso)) > 26 * 3.6e6;
+const LAST = "aisec_last_trigger";
+function setStatus(text, cls){ const st = document.getElementById("status"); if (st) { st.className = "status" + (cls ? " " + cls : ""); st.textContent = text; } }
+async function refreshNow(t){
+  const btn = document.getElementById("refresh");
+  let last = 0; try { last = +(localStorage.getItem(LAST) || 0); } catch(_){}
+  if (Date.now() - last < 5 * 60e3) { setStatus("몇 분 전에 이미 갱신을 요청했습니다. 끝나면 화면이 자동으로 바뀝니다."); return; }
+  btn.disabled = true; setStatus("갱신을 요청하는 중입니다.");
+  try {
+    const r = await fetch(`https://api.github.com/repos/${t.owner}/${t.repo}/actions/workflows/${t.workflow}/dispatches`, {
+      method: "POST", body: JSON.stringify({ref: t.ref}),
+      headers: {Authorization: `Bearer ${t.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"}});
+    if (r.status !== 204) throw new Error(r.status === 401 ? "갱신 토큰이 만료됐거나 잘못됐습니다. 토큰을 새로 만들어 등록해 주세요"
+      : (r.status === 403 || r.status === 404) ? "갱신 토큰에 실행 권한(Actions 읽기·쓰기)이 없습니다" : `GitHub 응답 ${r.status}`);
+  } catch(e) { btn.disabled = false; setStatus(`갱신 요청 실패: ${e.message}`, "err"); return; }
+  try { localStorage.setItem(LAST, String(Date.now())); } catch(_){}
+  setStatus("갱신 중입니다. 보통 2~4분 걸리고, 끝나면 이 화면이 자동으로 바뀝니다.");
+  poll(Date.now(), PAYLOAD.ct);
+}
+async function poll(started, oldCt){
+  if (!currentPw) return;
+  if (Date.now() - started > 9 * 60e3) {
+    setStatus("아직 갱신이 끝나지 않았습니다. 몇 분 뒤 새로고침해 주세요.");
+    const b = document.getElementById("refresh"); if (b) b.disabled = false; return;
+  }
+  await new Promise(r => setTimeout(r, 20000));
+  try {
+    const html = await (await fetch(`./index.html?t=${Date.now()}`, {cache: "no-store"})).text();
+    const m = html.match(/let PAYLOAD = (\{.*?\});/s);
+    if (m) {
+      const p = JSON.parse(m[1]);
+      if (p.ct !== oldCt) {
+        PAYLOAD = p; render(await decrypt(currentPw));
+        try { localStorage.removeItem(LAST); } catch(_){}
+        setStatus("새 데이터로 바뀌었습니다.", "ok"); return;
+      }
+    }
+  } catch(_) {}
+  poll(started, oldCt);
+}
+
+start();
+</script>
+</body>
+</html>
